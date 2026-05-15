@@ -162,6 +162,7 @@ const memberForm = useForm({
   management_division_id: "",
   name: "",
   position: "",
+  task_description: "",
   category: "member",
   photo_file: null,
   sort_order: 0,
@@ -171,6 +172,7 @@ const memberEditForm = useForm({
   management_division_id: "",
   name: "",
   position: "",
+  task_description: "",
   category: "member",
   photo_file: null,
   sort_order: 0,
@@ -255,6 +257,7 @@ const memberMatchesFilter = (member, division = {}) => {
     [
       member.name,
       member.position,
+      member.task_description,
       member.category,
       division.name,
       division.short_name,
@@ -392,6 +395,7 @@ const resetMemberForm = () => {
 
   memberForm.reset();
   memberForm.category = "member";
+  memberForm.task_description = "";
   memberForm.management_division_id = "";
   memberForm.photo_file = null;
   memberForm.sort_order = 0;
@@ -452,6 +456,7 @@ const editMember = (member) => {
   memberEditForm.management_division_id = member.management_division_id || "";
   memberEditForm.name = member.name || "";
   memberEditForm.position = member.position || "";
+  memberEditForm.task_description = member.task_description || "";
   memberEditForm.category = member.category || "member";
   memberEditForm.photo_file = null;
   memberEditForm.sort_order = Number(member.sort_order || 0);
@@ -1412,6 +1417,30 @@ onUnmounted(() => {
             </p>
           </div>
 
+          <div
+            v-if="memberForm.category === 'core'"
+            class="lg:col-span-2"
+          >
+            <label class="mb-2 block text-sm font-extrabold text-slate-800">
+              Tupoksi / Tugas Pengurus Inti
+            </label>
+            <textarea
+              v-model="memberForm.task_description"
+              rows="5"
+              placeholder="Contoh: Bertanggung jawab memimpin koordinasi organisasi, mengambil keputusan strategis, dan memastikan program kerja berjalan sesuai visi HMPS RPL."
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-medium leading-7 text-slate-900 outline-none transition duration-300 placeholder:text-slate-400 focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+            />
+            <p class="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700">
+              Isi tugas Ketua, Sekretaris, Bendahara, atau pengurus inti lain. Konten ini akan tampil pada card dan detail di halaman Kepengurusan.
+            </p>
+            <p
+              v-if="memberForm.errors.task_description"
+              class="mt-2 text-xs font-bold text-red-600"
+            >
+              {{ memberForm.errors.task_description }}
+            </p>
+          </div>
+
           <div>
             <label class="mb-2 block text-sm font-extrabold text-slate-800"
               >Kategori</label
@@ -1728,7 +1757,7 @@ onUnmounted(() => {
                         {{ editingMember?.name || 'Edit Data Pengurus' }}
                       </h4>
                       <p class="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                        Perbarui nama, jabatan, kategori, divisi, urutan, dan foto tanpa mengubah data backend.
+                        Perbarui nama, jabatan, tupoksi, kategori, divisi, urutan, dan foto tanpa mengubah data backend.
                       </p>
                     </div>
 
@@ -1776,6 +1805,30 @@ onUnmounted(() => {
                           class="mt-2 text-xs font-bold text-red-600"
                         >
                           {{ memberEditForm.errors.position }}
+                        </p>
+                      </div>
+
+                      <div
+                        v-if="memberEditForm.category === 'core'"
+                        class="sm:col-span-2"
+                      >
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Tupoksi / Tugas Pengurus Inti
+                        </label>
+                        <textarea
+                          v-model="memberEditForm.task_description"
+                          rows="5"
+                          placeholder="Tuliskan tugas, wewenang, dan tanggung jawab pengurus inti."
+                          class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm font-medium leading-7 text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p class="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700">
+                          Konten ini tampil pada card pengurus inti dan modal detail halaman Kepengurusan.
+                        </p>
+                        <p
+                          v-if="memberEditForm.errors.task_description"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.task_description }}
                         </p>
                       </div>
 
@@ -2049,6 +2102,13 @@ onUnmounted(() => {
                         {{ member.position }}
                       </p>
 
+                      <p
+                        v-if="member.task_description"
+                        class="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500"
+                      >
+                        {{ member.task_description }}
+                      </p>
+
                       <p class="mt-1 text-xs font-semibold text-slate-400">
                         Urutan {{ member.sort_order }}
                       </p>
@@ -2095,7 +2155,7 @@ onUnmounted(() => {
                         {{ editingMember?.name || 'Edit Data Pengurus' }}
                       </h4>
                       <p class="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                        Perbarui nama, jabatan, kategori, divisi, urutan, dan foto tanpa mengubah data backend.
+                        Perbarui nama, jabatan, tupoksi, kategori, divisi, urutan, dan foto tanpa mengubah data backend.
                       </p>
                     </div>
 
@@ -2143,6 +2203,30 @@ onUnmounted(() => {
                           class="mt-2 text-xs font-bold text-red-600"
                         >
                           {{ memberEditForm.errors.position }}
+                        </p>
+                      </div>
+
+                      <div
+                        v-if="memberEditForm.category === 'core'"
+                        class="sm:col-span-2"
+                      >
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Tupoksi / Tugas Pengurus Inti
+                        </label>
+                        <textarea
+                          v-model="memberEditForm.task_description"
+                          rows="5"
+                          placeholder="Tuliskan tugas, wewenang, dan tanggung jawab pengurus inti."
+                          class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm font-medium leading-7 text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p class="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700">
+                          Konten ini tampil pada card pengurus inti dan modal detail halaman Kepengurusan.
+                        </p>
+                        <p
+                          v-if="memberEditForm.errors.task_description"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.task_description }}
                         </p>
                       </div>
 

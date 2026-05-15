@@ -19,6 +19,7 @@ class ManagementMember extends Model
         'management_division_id',
         'name',
         'position',
+        'task_description',
         'category',
         'photo',
         'sort_order',

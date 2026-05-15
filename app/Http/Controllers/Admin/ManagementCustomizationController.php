@@ -44,6 +44,7 @@ class ManagementCustomizationController extends Controller
                 'division_short_name' => $member->division?->short_name,
                 'name' => $member->name,
                 'position' => $member->position,
+                'task_description' => $member->task_description,
                 'category' => $member->category,
                 'photo' => $member->photo,
                 'photo_url' => $member->photo_url,
@@ -164,6 +165,7 @@ class ManagementCustomizationController extends Controller
             'management_division_id' => ['nullable', 'exists:management_divisions,id'],
             'name' => ['required', 'string', 'max:160'],
             'position' => ['required', 'string', 'max:160'],
+            'task_description' => ['nullable', 'string', 'max:3000'],
             'category' => ['required', 'string', 'in:core,coordinator,member'],
             'photo_file' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'sort_order' => ['required', 'integer', 'min:0'],
@@ -172,6 +174,8 @@ class ManagementCustomizationController extends Controller
         if ($validated['category'] === ManagementMember::CATEGORY_CORE) {
             $validated['management_division_id'] = null;
         }
+
+        $validated['task_description'] = $this->nullableString($validated['task_description'] ?? null);
 
         if ($request->hasFile('photo_file')) {
             $validated['photo'] = $request->file('photo_file')->store('management-members', 'public');
@@ -190,6 +194,7 @@ class ManagementCustomizationController extends Controller
             'management_division_id' => ['nullable', 'exists:management_divisions,id'],
             'name' => ['required', 'string', 'max:160'],
             'position' => ['required', 'string', 'max:160'],
+            'task_description' => ['nullable', 'string', 'max:3000'],
             'category' => ['required', 'string', 'in:core,coordinator,member'],
             'photo_file' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'sort_order' => ['required', 'integer', 'min:0'],
@@ -198,6 +203,8 @@ class ManagementCustomizationController extends Controller
         if ($validated['category'] === ManagementMember::CATEGORY_CORE) {
             $validated['management_division_id'] = null;
         }
+
+        $validated['task_description'] = $this->nullableString($validated['task_description'] ?? null);
 
         if ($request->hasFile('photo_file')) {
             $this->deleteImageIfExists($managementMember->photo);
@@ -295,6 +302,13 @@ class ManagementCustomizationController extends Controller
             'image_three_file' => 'image_three',
             'image_four_file' => 'image_four',
         ];
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     private function deleteImageIfExists(?string $path): void

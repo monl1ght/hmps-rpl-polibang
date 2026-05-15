@@ -22,6 +22,7 @@ class KepengurusanController extends Controller
                 'management_division_id',
                 'name',
                 'position',
+                'task_description',
                 'category',
                 'photo',
                 'sort_order',
@@ -46,6 +47,7 @@ class KepengurusanController extends Controller
                         'management_division_id',
                         'name',
                         'position',
+                        'task_description',
                         'category',
                         'photo',
                         'sort_order',
@@ -109,6 +111,8 @@ class KepengurusanController extends Controller
             'role' => $member->position,
             'name' => $member->name,
             'photo' => $member->photo_url,
+            'task_description' => $member->task_description,
+            'description' => $this->memberTaskDescription($member),
         ];
     }
 
@@ -132,6 +136,8 @@ class KepengurusanController extends Controller
                     'name' => $coordinator->name,
                     'role' => $coordinator->position,
                     'photo' => $coordinator->photo_url,
+                    'task_description' => $coordinator->task_description,
+                    'description' => $this->memberTaskDescription($coordinator),
                 ]
                 : null,
             'members' => $members
@@ -140,10 +146,37 @@ class KepengurusanController extends Controller
                     'name' => $member->name,
                     'role' => $member->position,
                     'photo' => $member->photo_url,
+                    'task_description' => $member->task_description,
+                    'description' => $this->memberTaskDescription($member),
                 ])
                 ->values()
                 ->all(),
         ];
+    }
+
+    private function memberTaskDescription(ManagementMember $member): string
+    {
+        $description = trim((string) $member->task_description);
+
+        if ($description !== '') {
+            return $description;
+        }
+
+        $position = mb_strtolower((string) $member->position);
+
+        if (str_contains($position, 'ketua')) {
+            return 'Bertanggung jawab memimpin arah organisasi, mengoordinasikan pengurus, mengambil keputusan strategis, serta memastikan seluruh program kerja berjalan selaras dengan visi HMPS RPL.';
+        }
+
+        if (str_contains($position, 'sekretaris')) {
+            return 'Bertanggung jawab mengelola administrasi organisasi, surat-menyurat, notulensi, arsip, dan dokumentasi resmi agar tata kelola HMPS RPL berjalan tertib dan profesional.';
+        }
+
+        if (str_contains($position, 'bendahara')) {
+            return 'Bertanggung jawab mengelola keuangan organisasi, menyusun pencatatan pemasukan dan pengeluaran, serta menjaga transparansi laporan keuangan HMPS RPL.';
+        }
+
+        return 'Pengurus HMPS RPL yang berperan aktif dalam koordinasi, pelaksanaan program kerja, dan penguatan budaya organisasi yang profesional.';
     }
 
     private function buildStats(Collection $topLeaders, Collection $divisions): array

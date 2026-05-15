@@ -434,10 +434,12 @@ const getInitials = (name) => {
     .split(/\s+/)
     .filter(Boolean);
 
-  return words
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join("") || "HR";
+  return (
+    words
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("") || "HR"
+  );
 };
 
 const normalizeRoleLabel = (role, fallback = "Pengurus Inti") => {
@@ -457,6 +459,31 @@ const normalizeRoleLabel = (role, fallback = "Pengurus Inti") => {
 
 const getDivisionMembers = (division) => {
   return Array.isArray(division?.members) ? division.members : [];
+};
+
+const getCoreTaskDescription = (leader) => {
+  const customDescription = String(
+    leader?.task_description || leader?.taskDescription || leader?.description || ""
+  ).trim();
+
+  if (customDescription) return customDescription;
+
+  const role = normalizeRoleLabel(leader?.role || leader?.position || "Pengurus Inti");
+  const normalizedRole = role.toLowerCase();
+
+  if (normalizedRole.includes("ketua")) {
+    return "Bertanggung jawab memimpin arah organisasi, mengoordinasikan pengurus, mengambil keputusan strategis, serta memastikan seluruh program kerja berjalan selaras dengan visi HMPS RPL.";
+  }
+
+  if (normalizedRole.includes("sekretaris")) {
+    return "Bertanggung jawab mengelola administrasi organisasi, surat-menyurat, notulensi, arsip, dan dokumentasi resmi agar tata kelola HMPS RPL berjalan tertib dan profesional.";
+  }
+
+  if (normalizedRole.includes("bendahara")) {
+    return "Bertanggung jawab mengelola keuangan organisasi, menyusun pencatatan pemasukan dan pengeluaran, serta menjaga transparansi laporan keuangan HMPS RPL.";
+  }
+
+  return "Pengurus inti HMPS RPL yang berperan aktif dalam koordinasi dan pelaksanaan kegiatan organisasi.";
 };
 
 const formatPersonPayload = ({
@@ -1030,8 +1057,7 @@ onUnmounted(() => {
                     name: leader.name,
                     role: normalizeRoleLabel(leader.role),
                     photo: getPhoto(leader),
-                    description:
-                      'Pengurus inti HMPS RPL yang berperan aktif dalam koordinasi dan pelaksanaan kegiatan organisasi.',
+                    description: getCoreTaskDescription(leader),
                   })
                 )
               "
@@ -1072,8 +1098,7 @@ onUnmounted(() => {
                 <p
                   class="management-copy mt-3 line-clamp-3 text-sm leading-7 text-slate-500"
                 >
-                  Pengurus inti HMPS RPL yang berperan aktif dalam koordinasi dan
-                  pelaksanaan kegiatan organisasi.
+                  {{ getCoreTaskDescription(leader) }}
                 </p>
 
                 <span
