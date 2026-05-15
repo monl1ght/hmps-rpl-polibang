@@ -15,6 +15,14 @@ use Inertia\Response;
 
 class LayananJasaController extends Controller
 {
+    private const SOURCE_PAGE = 'layanan_jasa';
+
+    private const DEFAULT_SERVICE_TITLES = [
+        'Jasa Website',
+        'Instalasi Software & OS',
+        'Jasa Desain & Video',
+    ];
+
     public function index(): Response
     {
         $serviceModels = ServiceCatalog::query()
@@ -57,7 +65,10 @@ class LayananJasaController extends Controller
 
         $testimonials = ClientTestimonial::query()
             ->approved()
-            ->latest()
+            ->where('source_page', self::SOURCE_PAGE)
+            ->latest('created_at')
+            ->latest('id')
+            ->limit(30)
             ->get()
             ->map(fn(ClientTestimonial $testimonial) => $this->testimonialPayload($testimonial))
             ->values()
@@ -73,62 +84,77 @@ class LayananJasaController extends Controller
 
     public function storeTestimonial(Request $request): RedirectResponse
     {
-        $serviceTitles = $this->activeServiceTitles();
-
         $validated = $request->validate(
-            [
-                'name' => ['bail', 'required', 'string', 'min:2', 'max:100'],
-                'business_name' => ['nullable', 'string', 'max:120'],
-                'service_type' => [
-                    'bail',
-                    'required',
-                    'string',
-                    'max:180',
-                    Rule::in($serviceTitles),
-                ],
-                'rating' => ['bail', 'required', 'integer', 'between:1,5'],
-                'message' => ['bail', 'required', 'string', 'min:15', 'max:1000'],
-            ],
-            [
-                'name.required' => 'Nama client wajib diisi.',
-                'name.min' => 'Nama client minimal harus terdiri dari 2 karakter.',
-                'name.max' => 'Nama client maksimal 100 karakter.',
-
-                'business_name.max' => 'Nama usaha atau instansi maksimal 120 karakter.',
-
-                'service_type.required' => 'Jenis layanan wajib dipilih.',
-                'service_type.in' => 'Jenis layanan yang dipilih tidak valid.',
-
-                'rating.required' => 'Rating wajib dipilih.',
-                'rating.integer' => 'Rating harus berupa angka.',
-                'rating.between' => 'Rating harus berada di antara 1 sampai 5 bintang.',
-
-                'message.required' => 'Isi testimoni wajib diisi.',
-                'message.min' => 'Isi testimoni minimal 15 karakter.',
-                'message.max' => 'Isi testimoni maksimal 1000 karakter.',
-            ],
-            [
-                'name' => 'nama client',
-                'business_name' => 'nama usaha atau instansi',
-                'service_type' => 'jenis layanan',
-                'rating' => 'rating',
-                'message' => 'isi testimoni',
-            ]
+            $this->testimonialRules(),
+            $this->testimonialMessages(),
+            $this->testimonialAttributes()
         );
 
         ClientTestimonial::create([
-            'name' => $this->cleanString($validated['name']),
-            'business_name' => $this->nullableString($validated['business_name'] ?? null),
-            'service_type' => $this->cleanString($validated['service_type']),
-            'rating' => (int) $validated['rating'],
-            'message' => $this->cleanString($validated['message']),
+            'name' => $this->cleanSingleLine($validated['name']),
+            'business_name' => $this->nullableSingleLine($validated['business_name'] ?? null),
+            'service_type' => $this->cleanSingleLine($validated['service_type']),
+            'source_page' => self::SOURCE_PAGE,
+            'rating' => $this->normalizeRating($validated['rating']),
+            'message' => $this->cleanText($validated['message']),
             'is_approved' => false,
+            'sort_order' => 0,
         ]);
 
         return back()->with(
             'success',
             'Terima kasih. Testimoni Anda berhasil dikirim dan menunggu review admin.'
         );
+    }
+
+    private function testimonialRules(): array
+    {
+        return [
+            'name' => ['bail', 'required', 'string', 'min:2', 'max:100'],
+            'business_name' => ['nullable', 'string', 'max:120'],
+            'service_type' => [
+                'bail',
+                'required',
+                'string',
+                'max:180',
+                Rule::in($this->activeServiceTitles()),
+            ],
+            'rating' => ['bail', 'required', 'integer', 'between:1,5'],
+            'message' => ['bail', 'required', 'string', 'min:15', 'max:1000'],
+        ];
+    }
+
+    private function testimonialMessages(): array
+    {
+        return [
+            'name.required' => 'Nama client wajib diisi.',
+            'name.min' => 'Nama client minimal harus terdiri dari 2 karakter.',
+            'name.max' => 'Nama client maksimal 100 karakter.',
+
+            'business_name.max' => 'Nama usaha atau instansi maksimal 120 karakter.',
+
+            'service_type.required' => 'Jenis layanan wajib dipilih.',
+            'service_type.in' => 'Jenis layanan yang dipilih tidak valid.',
+
+            'rating.required' => 'Rating wajib dipilih.',
+            'rating.integer' => 'Rating harus berupa angka.',
+            'rating.between' => 'Rating harus berada di antara 1 sampai 5 bintang.',
+
+            'message.required' => 'Isi testimoni wajib diisi.',
+            'message.min' => 'Isi testimoni minimal 15 karakter.',
+            'message.max' => 'Isi testimoni maksimal 1000 karakter.',
+        ];
+    }
+
+    private function testimonialAttributes(): array
+    {
+        return [
+            'name' => 'nama client',
+            'business_name' => 'nama usaha atau instansi',
+            'service_type' => 'jenis layanan',
+            'rating' => 'rating',
+            'message' => 'isi testimoni',
+        ];
     }
 
     private function servicePayload(ServiceCatalog $service): array
@@ -176,11 +202,12 @@ class LayananJasaController extends Controller
     {
         return [
             'id' => $testimonial->id,
-            'name' => $testimonial->name,
+            'name' => $testimonial->name ?: 'Client Layanan Jasa',
             'business_name' => $testimonial->business_name,
-            'service_type' => $testimonial->service_type,
-            'rating' => min(max((int) $testimonial->rating, 1), 5),
-            'message' => $testimonial->message,
+            'service_type' => $testimonial->service_type ?: 'Layanan Jasa',
+            'source_page' => $testimonial->source_page ?: self::SOURCE_PAGE,
+            'rating' => $this->normalizeRating($testimonial->rating),
+            'message' => $testimonial->message ?: 'Testimoni belum memiliki isi.',
             'created_at' => optional($testimonial->created_at)->format('d M Y'),
         ];
     }
@@ -192,20 +219,13 @@ class LayananJasaController extends Controller
             ->ordered()
             ->pluck('title')
             ->filter()
-            ->map(fn($title) => $this->cleanString($title))
+            ->map(fn($title) => $this->cleanSingleLine($title))
+            ->filter()
             ->unique()
             ->values()
             ->all();
 
-        if (count($titles)) {
-            return $titles;
-        }
-
-        return [
-            'Jasa Website',
-            'Instalasi Software & OS',
-            'Jasa Desain & Video',
-        ];
+        return count($titles) ? $titles : self::DEFAULT_SERVICE_TITLES;
     }
 
     private function isWebsiteService(ServiceCatalog $service): bool
@@ -234,19 +254,18 @@ class LayananJasaController extends Controller
     private function normalizeArray(mixed $value): array
     {
         if ($value instanceof Collection) {
-            return $value->values()->all();
+            $value = $value->values()->all();
         }
 
-        if (is_array($value)) {
-            return array_values(
-                array_filter(
-                    $value,
-                    fn($item) => filled($item)
-                )
-            );
+        if (! is_array($value)) {
+            return [];
         }
 
-        return [];
+        return collect($value)
+            ->map(fn($item) => $this->cleanSingleLine($item))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function normalizePackageRows(mixed $rows): array
@@ -261,25 +280,46 @@ class LayananJasaController extends Controller
 
         return collect($rows)
             ->filter(fn($row) => is_array($row))
-            ->map(function (array $row) {
-                return [
-                    'label' => $this->cleanString($row['label'] ?? ''),
-                    'value' => $this->cleanString($row['value'] ?? ''),
-                ];
-            })
+            ->map(fn(array $row) => [
+                'label' => $this->cleanSingleLine($row['label'] ?? ''),
+                'value' => $this->cleanSingleLine($row['value'] ?? ''),
+            ])
             ->filter(fn(array $row) => filled($row['label']) || filled($row['value']))
             ->values()
             ->all();
     }
 
-    private function cleanString(mixed $value): string
+    private function normalizeRating(mixed $rating): int
     {
-        return trim((string) $value);
+        $rating = (int) $rating;
+
+        if ($rating < 1 || $rating > 5) {
+            return 5;
+        }
+
+        return $rating;
     }
 
-    private function nullableString(mixed $value): ?string
+    private function cleanSingleLine(mixed $value): string
     {
-        $value = $this->cleanString($value);
+        $value = trim((string) $value);
+        $value = preg_replace('/\s+/u', ' ', $value) ?: '';
+
+        return trim($value);
+    }
+
+    private function cleanText(mixed $value): string
+    {
+        $value = trim((string) $value);
+        $value = preg_replace("/\r\n|\r/u", "\n", $value) ?: '';
+        $value = preg_replace('/[ \t]+/u', ' ', $value) ?: '';
+
+        return trim($value);
+    }
+
+    private function nullableSingleLine(mixed $value): ?string
+    {
+        $value = $this->cleanSingleLine($value);
 
         return $value !== '' ? $value : null;
     }

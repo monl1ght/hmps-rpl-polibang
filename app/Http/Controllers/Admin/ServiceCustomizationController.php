@@ -9,111 +9,52 @@ use App\Models\ServicePackage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ServiceCustomizationController extends Controller
 {
+    private const TESTIMONIAL_SOURCE_PAGE = 'layanan_jasa';
+
+    private const ICON_OPTIONS = [
+        ['value' => 'globe', 'label' => 'Globe / Website'],
+        ['value' => 'monitor', 'label' => 'Monitor / Instalasi'],
+        ['value' => 'sparkles', 'label' => 'Sparkles / Desain Video'],
+    ];
+
     public function index(): Response
     {
         $this->ensureBaseServices();
         $this->attachLegacyPackagesToWebsite();
 
-        $services = ServiceCatalog::query()
-            ->withCount('packages')
-            ->ordered()
-            ->get()
-            ->map(fn(ServiceCatalog $service) => [
-                'id' => $service->id,
-                'title' => $service->title,
-                'slug' => $service->slug,
-                'badge' => $service->badge,
-                'icon' => $service->icon,
-                'summary' => $service->summary,
-                'features' => $service->features ?? [],
-                'features_text' => implode("\n", $service->features ?? []),
-                'cta' => $service->cta,
-                'whatsapp_text' => $service->whatsapp_text,
-                'is_active' => (bool) $service->is_active,
-                'sort_order' => (int) $service->sort_order,
-                'packages_count' => (int) $service->packages_count,
-            ])
-            ->values()
-            ->all();
-
-        $packages = ServicePackage::query()
-            ->with('service:id,title,slug')
-            ->ordered()
-            ->get()
-            ->map(fn(ServicePackage $package) => [
-                'id' => $package->id,
-                'service_catalog_id' => $package->service_catalog_id,
-                'service_title' => $package->service?->title,
-                'service_slug' => $package->service?->slug,
-                'title' => $package->title,
-                'subtitle' => $package->subtitle,
-                'rows' => $package->rows ?? [],
-                'rows_text' => $this->rowsToText($package->rows ?? []),
-                'is_active' => (bool) $package->is_active,
-                'sort_order' => (int) $package->sort_order,
-            ])
-            ->values()
-            ->all();
-
-        $testimonials = ClientTestimonial::query()
-            ->latest()
-            ->get()
-            ->map(fn(ClientTestimonial $testimonial) => [
-                'id' => $testimonial->id,
-                'name' => $testimonial->name,
-                'business_name' => $testimonial->business_name,
-                'service_type' => $testimonial->service_type,
-                'rating' => (int) $testimonial->rating,
-                'message' => $testimonial->message,
-                'is_approved' => (bool) $testimonial->is_approved,
-                'created_at' => optional($testimonial->created_at)?->format('d M Y'),
-            ])
-            ->values()
-            ->all();
-
         return Inertia::render('admin/pages/ServiceCustomization', [
-            'services' => $services,
-            'packages' => $packages,
-            'testimonials' => $testimonials,
-            'iconOptions' => [
-                ['value' => 'globe', 'label' => 'Globe / Website'],
-                ['value' => 'monitor', 'label' => 'Monitor / Instalasi'],
-                ['value' => 'sparkles', 'label' => 'Sparkles / Desain Video'],
-            ],
+            'services' => $this->servicePayloads(),
+            'packages' => $this->packagePayloads(),
+            'testimonials' => $this->testimonialPayloads(),
+            'iconOptions' => self::ICON_OPTIONS,
         ]);
     }
 
     public function storeService(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:180'],
-            'slug' => ['nullable', 'string', 'max:180', 'unique:service_catalogs,slug'],
-            'badge' => ['nullable', 'string', 'max:120'],
-            'icon' => ['nullable', 'string', 'max:80'],
-            'summary' => ['nullable', 'string', 'max:3000'],
-            'features_text' => ['nullable', 'string', 'max:5000'],
-            'cta' => ['nullable', 'string', 'max:160'],
-            'whatsapp_text' => ['nullable', 'string', 'max:1000'],
-            'is_active' => ['required', 'boolean'],
-            'sort_order' => ['required', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(
+            $this->serviceRules(),
+            $this->serviceMessages(),
+            $this->serviceAttributes()
+        );
 
         ServiceCatalog::create([
-            'title' => $validated['title'],
-            'slug' => $validated['slug'] ?: $this->uniqueServiceSlug($validated['title']),
-            'badge' => $validated['badge'] ?? null,
-            'icon' => $validated['icon'] ?? 'globe',
-            'summary' => $validated['summary'] ?? null,
+            'title' => $this->cleanString($validated['title']),
+            'slug' => $this->resolveServiceSlug($validated['title'], $validated['slug'] ?? null),
+            'badge' => $this->nullableString($validated['badge'] ?? null),
+            'icon' => $this->validIcon($validated['icon'] ?? null),
+            'summary' => $this->nullableString($validated['summary'] ?? null),
             'features' => $this->linesToArray($validated['features_text'] ?? null),
-            'cta' => $validated['cta'] ?? null,
-            'whatsapp_text' => $validated['whatsapp_text'] ?? null,
-            'is_active' => $validated['is_active'],
-            'sort_order' => $validated['sort_order'],
+            'cta' => $this->nullableString($validated['cta'] ?? null),
+            'whatsapp_text' => $this->nullableString($validated['whatsapp_text'] ?? null),
+            'is_active' => (bool) $validated['is_active'],
+            'sort_order' => (int) $validated['sort_order'],
         ]);
 
         return back()->with('success', 'Layanan berhasil ditambahkan.');
@@ -121,30 +62,27 @@ class ServiceCustomizationController extends Controller
 
     public function updateService(Request $request, ServiceCatalog $serviceCatalog): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:180'],
-            'slug' => ['nullable', 'string', 'max:180', 'unique:service_catalogs,slug,' . $serviceCatalog->id],
-            'badge' => ['nullable', 'string', 'max:120'],
-            'icon' => ['nullable', 'string', 'max:80'],
-            'summary' => ['nullable', 'string', 'max:3000'],
-            'features_text' => ['nullable', 'string', 'max:5000'],
-            'cta' => ['nullable', 'string', 'max:160'],
-            'whatsapp_text' => ['nullable', 'string', 'max:1000'],
-            'is_active' => ['required', 'boolean'],
-            'sort_order' => ['required', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(
+            $this->serviceRules($serviceCatalog),
+            $this->serviceMessages(),
+            $this->serviceAttributes()
+        );
 
         $serviceCatalog->update([
-            'title' => $validated['title'],
-            'slug' => $validated['slug'] ?: $this->uniqueServiceSlug($validated['title'], $serviceCatalog->id),
-            'badge' => $validated['badge'] ?? null,
-            'icon' => $validated['icon'] ?? 'globe',
-            'summary' => $validated['summary'] ?? null,
+            'title' => $this->cleanString($validated['title']),
+            'slug' => $this->resolveServiceSlug(
+                $validated['title'],
+                $validated['slug'] ?? null,
+                (int) $serviceCatalog->id
+            ),
+            'badge' => $this->nullableString($validated['badge'] ?? null),
+            'icon' => $this->validIcon($validated['icon'] ?? null),
+            'summary' => $this->nullableString($validated['summary'] ?? null),
             'features' => $this->linesToArray($validated['features_text'] ?? null),
-            'cta' => $validated['cta'] ?? null,
-            'whatsapp_text' => $validated['whatsapp_text'] ?? null,
-            'is_active' => $validated['is_active'],
-            'sort_order' => $validated['sort_order'],
+            'cta' => $this->nullableString($validated['cta'] ?? null),
+            'whatsapp_text' => $this->nullableString($validated['whatsapp_text'] ?? null),
+            'is_active' => (bool) $validated['is_active'],
+            'sort_order' => (int) $validated['sort_order'],
         ]);
 
         return back()->with('success', 'Layanan berhasil diperbarui.');
@@ -163,22 +101,19 @@ class ServiceCustomizationController extends Controller
 
     public function storePackage(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'service_catalog_id' => ['required', 'exists:service_catalogs,id'],
-            'title' => ['required', 'string', 'max:180'],
-            'subtitle' => ['nullable', 'string', 'max:180'],
-            'rows_text' => ['nullable', 'string', 'max:8000'],
-            'is_active' => ['required', 'boolean'],
-            'sort_order' => ['required', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(
+            $this->packageRules(),
+            $this->packageMessages(),
+            $this->packageAttributes()
+        );
 
         ServicePackage::create([
-            'service_catalog_id' => $validated['service_catalog_id'],
-            'title' => $validated['title'],
-            'subtitle' => $validated['subtitle'] ?? null,
+            'service_catalog_id' => (int) $validated['service_catalog_id'],
+            'title' => $this->cleanString($validated['title']),
+            'subtitle' => $this->nullableString($validated['subtitle'] ?? null),
             'rows' => $this->textToRows($validated['rows_text'] ?? null),
-            'is_active' => $validated['is_active'],
-            'sort_order' => $validated['sort_order'],
+            'is_active' => (bool) $validated['is_active'],
+            'sort_order' => (int) $validated['sort_order'],
         ]);
 
         return back()->with('success', 'Paket layanan berhasil ditambahkan.');
@@ -186,22 +121,19 @@ class ServiceCustomizationController extends Controller
 
     public function updatePackage(Request $request, ServicePackage $servicePackage): RedirectResponse
     {
-        $validated = $request->validate([
-            'service_catalog_id' => ['required', 'exists:service_catalogs,id'],
-            'title' => ['required', 'string', 'max:180'],
-            'subtitle' => ['nullable', 'string', 'max:180'],
-            'rows_text' => ['nullable', 'string', 'max:8000'],
-            'is_active' => ['required', 'boolean'],
-            'sort_order' => ['required', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(
+            $this->packageRules(),
+            $this->packageMessages(),
+            $this->packageAttributes()
+        );
 
         $servicePackage->update([
-            'service_catalog_id' => $validated['service_catalog_id'],
-            'title' => $validated['title'],
-            'subtitle' => $validated['subtitle'] ?? null,
+            'service_catalog_id' => (int) $validated['service_catalog_id'],
+            'title' => $this->cleanString($validated['title']),
+            'subtitle' => $this->nullableString($validated['subtitle'] ?? null),
             'rows' => $this->textToRows($validated['rows_text'] ?? null),
-            'is_active' => $validated['is_active'],
-            'sort_order' => $validated['sort_order'],
+            'is_active' => (bool) $validated['is_active'],
+            'sort_order' => (int) $validated['sort_order'],
         ]);
 
         return back()->with('success', 'Paket layanan berhasil diperbarui.');
@@ -216,12 +148,14 @@ class ServiceCustomizationController extends Controller
 
     public function updateTestimonial(Request $request, ClientTestimonial $clientTestimonial): RedirectResponse
     {
+        $this->ensureServiceTestimonial($clientTestimonial);
+
         $validated = $request->validate([
             'is_approved' => ['required', 'boolean'],
         ]);
 
         $clientTestimonial->update([
-            'is_approved' => $validated['is_approved'],
+            'is_approved' => (bool) $validated['is_approved'],
         ]);
 
         return back()->with('success', 'Status testimoni berhasil diperbarui.');
@@ -229,9 +163,78 @@ class ServiceCustomizationController extends Controller
 
     public function destroyTestimonial(ClientTestimonial $clientTestimonial): RedirectResponse
     {
+        $this->ensureServiceTestimonial($clientTestimonial);
+
         $clientTestimonial->delete();
 
         return back()->with('success', 'Testimoni berhasil dihapus.');
+    }
+
+    private function servicePayloads(): array
+    {
+        return ServiceCatalog::query()
+            ->withCount('packages')
+            ->ordered()
+            ->get()
+            ->map(fn(ServiceCatalog $service) => [
+                'id' => $service->id,
+                'title' => $service->title,
+                'slug' => $service->slug,
+                'badge' => $service->badge,
+                'icon' => $service->icon,
+                'summary' => $service->summary,
+                'features' => $this->normalizeArray($service->features),
+                'features_text' => implode("\n", $this->normalizeArray($service->features)),
+                'cta' => $service->cta,
+                'whatsapp_text' => $service->whatsapp_text,
+                'is_active' => (bool) $service->is_active,
+                'sort_order' => (int) $service->sort_order,
+                'packages_count' => (int) $service->packages_count,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function packagePayloads(): array
+    {
+        return ServicePackage::query()
+            ->with('service:id,title,slug')
+            ->ordered()
+            ->get()
+            ->map(fn(ServicePackage $package) => [
+                'id' => $package->id,
+                'service_catalog_id' => $package->service_catalog_id,
+                'service_title' => $package->service?->title,
+                'service_slug' => $package->service?->slug,
+                'title' => $package->title,
+                'subtitle' => $package->subtitle,
+                'rows' => $this->normalizeRows($package->rows),
+                'rows_text' => $this->rowsToText($package->rows),
+                'is_active' => (bool) $package->is_active,
+                'sort_order' => (int) $package->sort_order,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function testimonialPayloads(): array
+    {
+        return ClientTestimonial::query()
+            ->where('source_page', self::TESTIMONIAL_SOURCE_PAGE)
+            ->latest()
+            ->get()
+            ->map(fn(ClientTestimonial $testimonial) => [
+                'id' => $testimonial->id,
+                'name' => $testimonial->name,
+                'business_name' => $testimonial->business_name,
+                'service_type' => $testimonial->service_type,
+                'rating' => $this->normalizeRating($testimonial->rating),
+                'message' => $testimonial->message,
+                'is_approved' => (bool) $testimonial->is_approved,
+                'created_at' => optional($testimonial->created_at)?->format('d M Y'),
+            ])
+            ->values()
+            ->all();
     }
 
     private function ensureBaseServices(): void
@@ -285,7 +288,7 @@ class ServiceCustomizationController extends Controller
         ];
 
         foreach ($services as $slug => $service) {
-            ServiceCatalog::firstOrCreate(
+            ServiceCatalog::query()->firstOrCreate(
                 ['slug' => $slug],
                 [
                     ...$service,
@@ -371,7 +374,7 @@ class ServiceCustomizationController extends Controller
         ];
 
         foreach ($defaults as $serviceSlug => $packages) {
-            $service = ServiceCatalog::where('slug', $serviceSlug)->first();
+            $service = ServiceCatalog::query()->where('slug', $serviceSlug)->first();
 
             if (! $service || $service->packages()->exists()) {
                 continue;
@@ -392,21 +395,126 @@ class ServiceCustomizationController extends Controller
 
     private function attachLegacyPackagesToWebsite(): void
     {
-        $website = ServiceCatalog::where('slug', 'website')->first();
+        $website = ServiceCatalog::query()->where('slug', 'website')->first();
 
         if (! $website) {
             return;
         }
 
-        ServicePackage::whereNull('service_catalog_id')->update([
-            'service_catalog_id' => $website->id,
-        ]);
+        ServicePackage::query()
+            ->whereNull('service_catalog_id')
+            ->update([
+                'service_catalog_id' => $website->id,
+            ]);
+    }
+
+    private function ensureServiceTestimonial(ClientTestimonial $clientTestimonial): void
+    {
+        abort_if(
+            $clientTestimonial->source_page !== self::TESTIMONIAL_SOURCE_PAGE,
+            404
+        );
+    }
+
+    private function serviceRules(?ServiceCatalog $serviceCatalog = null): array
+    {
+        $ignoreId = $serviceCatalog?->id;
+
+        return [
+            'title' => ['required', 'string', 'max:180'],
+            'slug' => [
+                'nullable',
+                'string',
+                'max:180',
+                Rule::unique('service_catalogs', 'slug')->ignore($ignoreId),
+            ],
+            'badge' => ['nullable', 'string', 'max:120'],
+            'icon' => ['nullable', 'string', Rule::in($this->iconValues())],
+            'summary' => ['nullable', 'string', 'max:3000'],
+            'features_text' => ['nullable', 'string', 'max:5000'],
+            'cta' => ['nullable', 'string', 'max:160'],
+            'whatsapp_text' => ['nullable', 'string', 'max:1000'],
+            'is_active' => ['required', 'boolean'],
+            'sort_order' => ['required', 'integer', 'min:0'],
+        ];
+    }
+
+    private function packageRules(): array
+    {
+        return [
+            'service_catalog_id' => ['required', 'integer', 'exists:service_catalogs,id'],
+            'title' => ['required', 'string', 'max:180'],
+            'subtitle' => ['nullable', 'string', 'max:180'],
+            'rows_text' => ['nullable', 'string', 'max:8000'],
+            'is_active' => ['required', 'boolean'],
+            'sort_order' => ['required', 'integer', 'min:0'],
+        ];
+    }
+
+    private function serviceMessages(): array
+    {
+        return [
+            'title.required' => 'Nama layanan wajib diisi.',
+            'title.max' => 'Nama layanan maksimal 180 karakter.',
+            'slug.unique' => 'Slug layanan sudah digunakan.',
+            'icon.in' => 'Ikon layanan yang dipilih tidak valid.',
+            'summary.max' => 'Ringkasan layanan maksimal 3000 karakter.',
+            'features_text.max' => 'Fitur layanan maksimal 5000 karakter.',
+            'cta.max' => 'Teks tombol maksimal 160 karakter.',
+            'whatsapp_text.max' => 'Teks WhatsApp maksimal 1000 karakter.',
+            'is_active.required' => 'Status layanan wajib dipilih.',
+            'sort_order.required' => 'Urutan layanan wajib diisi.',
+            'sort_order.min' => 'Urutan layanan tidak boleh negatif.',
+        ];
+    }
+
+    private function packageMessages(): array
+    {
+        return [
+            'service_catalog_id.required' => 'Layanan induk wajib dipilih.',
+            'service_catalog_id.exists' => 'Layanan induk tidak valid.',
+            'title.required' => 'Nama paket wajib diisi.',
+            'title.max' => 'Nama paket maksimal 180 karakter.',
+            'subtitle.max' => 'Subjudul paket maksimal 180 karakter.',
+            'rows_text.max' => 'Detail paket maksimal 8000 karakter.',
+            'is_active.required' => 'Status paket wajib dipilih.',
+            'sort_order.required' => 'Urutan paket wajib diisi.',
+            'sort_order.min' => 'Urutan paket tidak boleh negatif.',
+        ];
+    }
+
+    private function serviceAttributes(): array
+    {
+        return [
+            'title' => 'nama layanan',
+            'slug' => 'slug layanan',
+            'badge' => 'badge layanan',
+            'icon' => 'ikon layanan',
+            'summary' => 'ringkasan layanan',
+            'features_text' => 'fitur layanan',
+            'cta' => 'teks tombol',
+            'whatsapp_text' => 'teks WhatsApp',
+            'is_active' => 'status layanan',
+            'sort_order' => 'urutan layanan',
+        ];
+    }
+
+    private function packageAttributes(): array
+    {
+        return [
+            'service_catalog_id' => 'layanan induk',
+            'title' => 'nama paket',
+            'subtitle' => 'subjudul paket',
+            'rows_text' => 'detail paket',
+            'is_active' => 'status paket',
+            'sort_order' => 'urutan paket',
+        ];
     }
 
     private function linesToArray(?string $value): array
     {
-        return collect(preg_split('/\r\n|\r|\n/', (string) $value))
-            ->map(fn($item) => trim($item))
+        return collect(preg_split('/\r\n|\r|\n/', (string) $value) ?: [])
+            ->map(fn($item) => $this->cleanString($item))
             ->filter()
             ->values()
             ->all();
@@ -414,33 +522,70 @@ class ServiceCustomizationController extends Controller
 
     private function textToRows(?string $value): array
     {
-        return collect(preg_split('/\r\n|\r|\n/', (string) $value))
-            ->map(fn($line) => trim($line))
+        return collect(preg_split('/\r\n|\r|\n/', (string) $value) ?: [])
+            ->map(fn($line) => $this->cleanString($line))
             ->filter()
-            ->map(function ($line) {
+            ->map(function (string $line) {
                 $parts = explode('|', $line, 2);
 
                 return [
-                    'label' => trim($parts[0] ?? ''),
-                    'value' => trim($parts[1] ?? ''),
+                    'label' => $this->cleanString($parts[0] ?? ''),
+                    'value' => $this->cleanString($parts[1] ?? ''),
                 ];
             })
-            ->filter(fn($row) => filled($row['label']) && filled($row['value']))
+            ->filter(fn(array $row) => filled($row['label']) && filled($row['value']))
             ->values()
             ->all();
     }
 
-    private function rowsToText(array $rows): string
+    private function rowsToText(mixed $rows): string
     {
-        return collect($rows)
-            ->map(fn($row) => ($row['label'] ?? '') . ' | ' . ($row['value'] ?? ''))
+        return collect($this->normalizeRows($rows))
+            ->map(fn(array $row) => $row['label'] . ' | ' . $row['value'])
             ->implode("\n");
     }
 
-    private function uniqueServiceSlug(string $title, ?int $ignoreId = null): string
+    private function normalizeRows(mixed $rows): array
     {
-        $baseSlug = Str::slug($title);
-        $slug = $baseSlug ?: 'layanan';
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        return collect($rows)
+            ->filter(fn($row) => is_array($row))
+            ->map(fn(array $row) => [
+                'label' => $this->cleanString($row['label'] ?? ''),
+                'value' => $this->cleanString($row['value'] ?? ''),
+            ])
+            ->filter(fn(array $row) => filled($row['label']) || filled($row['value']))
+            ->values()
+            ->all();
+    }
+
+    private function normalizeArray(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return collect($value)
+            ->map(fn($item) => $this->cleanString($item))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function resolveServiceSlug(string $title, ?string $requestedSlug = null, ?int $ignoreId = null): string
+    {
+        $slug = Str::slug($requestedSlug ?: $title);
+
+        return $this->uniqueServiceSlug($slug ?: 'layanan', $ignoreId);
+    }
+
+    private function uniqueServiceSlug(string $baseSlug, ?int $ignoreId = null): string
+    {
+        $baseSlug = Str::slug($baseSlug) ?: 'layanan';
+        $slug = $baseSlug;
         $counter = 1;
 
         while (
@@ -454,5 +599,47 @@ class ServiceCustomizationController extends Controller
         }
 
         return $slug;
+    }
+
+    private function validIcon(?string $icon): string
+    {
+        $icon = $this->cleanString($icon ?: 'globe');
+
+        return in_array($icon, $this->iconValues(), true) ? $icon : 'globe';
+    }
+
+    private function iconValues(): array
+    {
+        return collect(self::ICON_OPTIONS)
+            ->pluck('value')
+            ->values()
+            ->all();
+    }
+
+    private function normalizeRating(mixed $rating): int
+    {
+        $rating = (int) $rating;
+
+        if ($rating < 1) {
+            return 5;
+        }
+
+        if ($rating > 5) {
+            return 5;
+        }
+
+        return $rating;
+    }
+
+    private function cleanString(mixed $value): string
+    {
+        return trim((string) $value);
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        $value = $this->cleanString($value);
+
+        return $value !== '' ? $value : null;
     }
 }

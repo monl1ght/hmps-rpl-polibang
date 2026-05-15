@@ -32,6 +32,14 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  profileCabinetLogo: {
+    type: Object,
+    default: () => ({}),
+  },
+  cabinetLogoImage: {
+    type: [Object, String],
+    default: () => ({}),
+  },
   profileHeroImages: {
     type: Array,
     default: () => [],
@@ -124,6 +132,32 @@ const fallbackFunction = {
   titleHighlight: "HMPS RPL",
   description:
     "HMPS RPL berperan sebagai penghubung, penggerak, dan wadah pengembangan mahasiswa.",
+};
+
+const fallbackCabinetLogo = {
+  badge: "Logo Kabinet",
+  title: "Arti Logo",
+  titleHighlight: "Raksa Devarya",
+  description:
+    "Logo Raksa Devarya menjadi identitas visual kabinet yang mencerminkan semangat menjaga, menguatkan, dan mengembangkan ruang kolaborasi mahasiswa RPL. Setiap bentuk visual di dalamnya merepresentasikan keberanian untuk bergerak maju, keterbukaan terhadap ide baru, serta komitmen membangun organisasi yang aktif, kreatif, profesional, dan berdampak.",
+  meta: {
+    cabinet_name: "Raksa Devarya",
+    period: "Periode 2025/2026",
+    section_title: "Arti Logo",
+    section_highlight: "Raksa Devarya",
+    logo_tagline: "Aktif, Kreatif, Kolaboratif",
+    logo_caption: "Identitas visual kabinet HMPS RPL",
+    meaning_title: "Makna Identitas Kabinet",
+    meaning_subtitle:
+      "Logo ditampilkan sebagai simbol arah gerak, karakter, dan komitmen kepengurusan.",
+  },
+};
+
+const fallbackCabinetLogoImage = {
+  id: "cabinet-logo-fallback",
+  image: "/Images/logo/hmps-rpl-logo.png",
+  alt: "Logo Kabinet Raksa Devarya",
+  title: "Raksa Devarya",
 };
 
 const fallbackTicks = [
@@ -257,6 +291,9 @@ const identitySection = computed(() =>
 );
 const functionSection = computed(() =>
   mergeSection(props.profileFunction, fallbackFunction)
+);
+const cabinetLogoSection = computed(() =>
+  mergeSection(props.profileCabinetLogo, fallbackCabinetLogo)
 );
 
 const toText = (value, fallback = "") => {
@@ -476,11 +513,33 @@ const periods = computed(() =>
   })
 );
 
-const missions = computed(() =>
-  resolveArray(props.missions, fallbackMissions)
+const normalizeMissionLines = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => toText(item))
+      .filter(Boolean);
+  }
+
+  return String(value || "")
+    .split(/\r?\n|\|/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const missions = computed(() => {
+  const meta = visionMission.value?.meta || {};
+  const customMissions = normalizeMissionLines(
+    meta.missions || meta.missions_text || meta.mission_text || meta.misi
+  );
+
+  if (customMissions.length) {
+    return customMissions;
+  }
+
+  return resolveArray(props.missions, fallbackMissions)
     .map((item) => toText(item))
-    .filter(Boolean)
-);
+    .filter(Boolean);
+});
 
 const identityCards = computed(() =>
   resolveArray(props.identityCards, fallbackIdentityCards).map((item, index) => {
@@ -524,6 +583,111 @@ const heroImages = computed(() => {
 
   return mergedImages.slice(0, 4).map((item, index) => normalizeHeroImage(item, index));
 });
+
+const cabinetLogoSource = computed(() => {
+  return props.cabinetLogoImage && typeof props.cabinetLogoImage === "object"
+    ? props.cabinetLogoImage
+    : {};
+});
+
+const cabinetLogoData = computed(() => {
+  const logo = cabinetLogoSource.value;
+  const sectionMeta = cabinetLogoSection.value.meta || {};
+  const logoMeta = logo.meta && typeof logo.meta === "object" ? logo.meta : {};
+  const mergedMeta = {
+    ...sectionMeta,
+    ...logoMeta,
+  };
+
+  const cabinetName = toText(
+    logo.cabinet_name || logo.cabinetName || mergedMeta.cabinet_name,
+    "Raksa Devarya"
+  );
+
+  const sectionTitle = toText(
+    logo.section_title || mergedMeta.section_title || cabinetLogoSection.value.title,
+    fallbackCabinetLogo.meta.section_title
+  );
+
+  const sectionHighlight = toText(
+    logo.section_highlight || mergedMeta.section_highlight || cabinetLogoSection.value.titleHighlight,
+    cabinetName
+  );
+
+  const description = toText(
+    logo.description || logo.meaning || mergedMeta.meaning || mergedMeta.short_meaning || cabinetLogoSection.value.description,
+    fallbackCabinetLogo.description
+  );
+
+  return {
+    id: logo.id || fallbackCabinetLogoImage.id,
+    title: toText(logo.title || cabinetName, fallbackCabinetLogoImage.title),
+    cabinetName,
+    period: toText(logo.period || mergedMeta.period, "Periode 2025 / 2026"),
+    description,
+    sectionTitle,
+    sectionHighlight,
+    logoCaption: toText(
+      logo.logo_caption || mergedMeta.logo_caption,
+      fallbackCabinetLogo.meta.logo_caption
+    ),
+    logoTagline: toText(
+      logo.logo_tagline || mergedMeta.logo_tagline || mergedMeta.tagline,
+      fallbackCabinetLogo.meta.logo_tagline
+    ),
+    meaningBadge: toText(
+      logo.meaning_title || mergedMeta.meaning_title,
+      fallbackCabinetLogo.meta.meaning_title
+    ),
+    meaningHeadline: toText(
+      logo.meaning_subtitle || mergedMeta.meaning_subtitle,
+      fallbackCabinetLogo.meta.meaning_subtitle
+    ),
+    alt: toText(
+      logo.alt || logo.alt_text || logo.title || cabinetName,
+      fallbackCabinetLogoImage.alt
+    ),
+    image:
+      resolveImageSource(props.cabinetLogoImage) ||
+      normalizeUrlValue(mergedMeta.logo_image) ||
+      fallbackCabinetLogoImage.image,
+    meta: mergedMeta,
+  };
+});
+
+const cabinetLogoImage = computed(() => ({
+  id: cabinetLogoData.value.id,
+  image: cabinetLogoData.value.image,
+  alt: cabinetLogoData.value.alt,
+  title: cabinetLogoData.value.title,
+}));
+
+const cabinetLogoMeaning = computed(() => cabinetLogoData.value.description);
+
+const cabinetLogoDisplayTitle = computed(() => cabinetLogoData.value.sectionTitle);
+
+const cabinetLogoDisplayHighlight = computed(() => cabinetLogoData.value.sectionHighlight);
+
+const cabinetLogoCaption = computed(() => cabinetLogoData.value.logoCaption);
+
+const cabinetMeaningBadge = computed(() => cabinetLogoData.value.meaningBadge);
+
+const cabinetMeaningHeadline = computed(() => cabinetLogoData.value.meaningHeadline);
+
+const cabinetLogoFacts = computed(() => [
+  {
+    label: "Nama Kabinet",
+    value: cabinetLogoData.value.cabinetName,
+  },
+  {
+    label: "Periode",
+    value: cabinetLogoData.value.period,
+  },
+  {
+    label: "Tagline",
+    value: cabinetLogoData.value.logoTagline,
+  },
+]);
 
 const primaryHeroImage = computed(() => heroImages.value[0]?.image || "");
 const primaryHeroSrcset = computed(() => heroImages.value[0]?.srcset || "");
@@ -595,7 +759,7 @@ const scrollToSection = (id) => {
   </Head>
 
   <div
-    class="profil-mobile-page overflow-x-hidden bg-white font-['Plus_Jakarta_Sans',sans-serif] text-slate-950"
+    class="profil-mobile-page profil-logo-professional-page overflow-x-hidden bg-white font-['Plus_Jakarta_Sans',sans-serif] text-slate-950"
   >
     <!-- Hero -->
     <section
@@ -640,7 +804,7 @@ const scrollToSection = (id) => {
               {{ hero.description }}
             </p>
 
-            <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <button
                 type="button"
                 @click="scrollToSection('tentang')"
@@ -663,6 +827,27 @@ const scrollToSection = (id) => {
                   />
                 </svg>
                 <span class="relative z-10">Tentang</span>
+              </button>
+
+              <button
+                type="button"
+                @click="scrollToSection('logo-kabinet')"
+                class="group relative inline-flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,#081120,#0f172a)] px-5 text-sm font-extrabold text-white shadow-[0_16px_34px_rgba(2,6,23,0.18)] transition-all duration-300 hover:-translate-y-[2px] hover:bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)] hover:shadow-[0_24px_50px_rgba(220,38,38,0.28)] active:bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)] active:shadow-[0_18px_38px_rgba(220,38,38,0.24)] sm:min-h-[54px]"
+              >
+                <svg
+                  class="h-4 w-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.4"
+                    d="M12 3l2.35 4.76 5.25.76-3.8 3.7.9 5.23L12 14.98l-4.7 2.47.9-5.23-3.8-3.7 5.25-.76L12 3z"
+                  />
+                </svg>
+                Logo
               </button>
 
               <button
@@ -1148,6 +1333,185 @@ const scrollToSection = (id) => {
       </div>
     </section>
 
+    <!-- Logo Kabinet -->
+    <section
+      id="logo-kabinet"
+      class="cabinet-logo-professional cv-auto relative scroll-mt-24 overflow-hidden bg-[radial-gradient(circle_at_15%_8%,rgba(239,68,68,0.10),transparent_28%),radial-gradient(circle_at_86%_72%,rgba(15,23,42,0.07),transparent_32%),linear-gradient(180deg,#ffffff_0%,#fff7f7_54%,#ffffff_100%)] py-16 sm:py-20 lg:py-28"
+    >
+      <div
+        class="pointer-events-none absolute left-0 top-0 h-40 w-40 -translate-x-1/2 rounded-full bg-red-500/10 blur-3xl sm:h-64 sm:w-64"
+        aria-hidden="true"
+      />
+      <div
+        class="pointer-events-none absolute bottom-10 right-0 h-44 w-44 translate-x-1/3 rounded-full bg-slate-900/10 blur-3xl sm:h-72 sm:w-72"
+        aria-hidden="true"
+      />
+
+      <div class="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div
+          class="mb-10 max-w-3xl lg:mb-14"
+          data-aos="fade-up"
+          data-aos-duration="800"
+        >
+          <div
+            class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
+          >
+            <span class="h-2 w-2 rounded-full bg-red-500" />
+            {{ cabinetLogoSection.badge }}
+          </div>
+
+          <h2
+            class="break-words text-[1.9rem] font-black leading-[1.1] tracking-[-0.04em] text-slate-950 [overflow-wrap:anywhere] sm:text-[2.35rem] md:text-[2.85rem] xl:text-[3.35rem]"
+          >
+            {{ cabinetLogoDisplayTitle }}
+            <span
+              class="bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)] bg-clip-text text-transparent"
+            >
+              {{ cabinetLogoDisplayHighlight }}
+            </span>
+          </h2>
+        </div>
+
+        <div
+          class="cabinet-logo-layout grid grid-cols-1 gap-6 lg:grid-cols-[0.88fr_1.12fr] lg:gap-8 xl:gap-10"
+        >
+          <div data-aos="fade-right" data-aos-duration="850">
+            <div
+              class="cabinet-logo-card group relative overflow-hidden rounded-[2rem] border border-slate-900/5 bg-white p-5 shadow-[0_24px_70px_rgba(2,6,23,0.10)] sm:p-7 lg:p-8"
+            >
+              <div
+                class="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)]"
+                aria-hidden="true"
+              />
+              <div
+                class="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-red-500/10 blur-3xl"
+                aria-hidden="true"
+              />
+              <div
+                class="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-slate-900/10 blur-3xl"
+                aria-hidden="true"
+              />
+
+              <div
+                class="relative z-10 mx-auto flex aspect-square max-w-[23rem] items-center justify-center rounded-[1.7rem] border border-slate-200 bg-[linear-gradient(145deg,#fff7f7,#ffffff_44%,#f8fafc)] p-8 shadow-inner sm:max-w-[26rem] sm:p-10"
+              >
+                <div
+                  class="absolute inset-4 rounded-[1.35rem] border border-dashed border-red-200/80"
+                  aria-hidden="true"
+                />
+                <img
+                  :src="cabinetLogoImage.image"
+                  :alt="cabinetLogoImage.alt"
+                  class="relative z-10 h-full max-h-[18rem] w-full object-contain transition-transform duration-700 group-hover:scale-[1.035] sm:max-h-[21rem]"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+
+              <div class="relative z-10 mt-6 text-center">
+                <p
+                  class="text-[0.68rem] font-black uppercase tracking-[0.16em] text-red-700"
+                >
+                  {{ cabinetLogoCaption }}
+                </p>
+                <h3
+                  class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-3xl"
+                >
+                  {{ cabinetLogoData.cabinetName }}
+                </h3>
+                <p class="mt-2 text-sm font-semibold text-slate-500">
+                  {{ cabinetLogoData.period }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div data-aos="fade-left" data-aos-duration="850">
+            <div
+              class="cabinet-meaning-card relative h-full min-w-0 overflow-hidden rounded-[2rem] bg-[linear-gradient(160deg,#0b1220,#111827_58%,#450a0a)] p-5 text-white shadow-[0_24px_70px_rgba(2,6,23,0.18)] sm:p-7 lg:p-8"
+            >
+              <div
+                class="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-red-500/20 blur-[70px]"
+                aria-hidden="true"
+              />
+              <div
+                class="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-white/10 blur-[80px]"
+                aria-hidden="true"
+              />
+
+              <div class="relative z-10">
+                <div
+                  class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[0.68rem] font-black uppercase tracking-[0.14em] text-red-100 ring-1 ring-white/15"
+                >
+                  <span class="h-2 w-2 rounded-full bg-red-300" />
+                  {{ cabinetMeaningBadge }}
+                </div>
+
+                <h3
+                  class="mt-5 max-w-2xl break-words text-[1.55rem] font-black leading-tight tracking-[-0.04em] text-white [overflow-wrap:anywhere] sm:text-[2rem] lg:text-[2.35rem]"
+                >
+                  {{ cabinetMeaningHeadline }}
+                </h3>
+
+                <p
+                  class="mt-5 break-words text-justify text-sm leading-8 text-slate-300 [overflow-wrap:anywhere] sm:text-base sm:leading-9"
+                >
+                  {{ cabinetLogoMeaning }}
+                </p>
+
+                <div class="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div
+                    v-for="item in cabinetLogoFacts"
+                    :key="item.label"
+                    class="rounded-[1.25rem] border border-white/10 bg-white/[0.075] p-4 backdrop-blur-xl"
+                  >
+                    <p
+                      class="text-[0.64rem] font-black uppercase tracking-[0.14em] text-red-200"
+                    >
+                      {{ item.label }}
+                    </p>
+                    <p class="mt-2 break-words text-sm font-extrabold leading-6 text-white [overflow-wrap:anywhere]">
+                      {{ item.value }}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="mt-7 rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 sm:p-5"
+                >
+                  <div class="flex items-start gap-3">
+                    <span
+                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-500/20 text-red-100 ring-1 ring-white/10"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        class="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2.35"
+                          d="M12 3l2.35 4.76 5.25.76-3.8 3.7.9 5.23L12 14.98l-4.7 2.47.9-5.23-3.8-3.7 5.25-.76L12 3z"
+                        />
+                      </svg>
+                    </span>
+
+                    <p class="break-words text-justify text-sm leading-7 text-slate-300 [overflow-wrap:anywhere]">
+                      Bagian ini disiapkan agar konten logo kabinet dapat dikelola dari
+                      backend tanpa mengubah layout halaman profil.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Visi Misi -->
     <section
       id="visi-misi"
@@ -1193,21 +1557,7 @@ const scrollToSection = (id) => {
             <div
               class="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-red-500/20 blur-[58px]"
             />
-
-            <div
-              class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg shadow-red-500/20"
-            >
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.3"
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-6 2H5a2 2 0 01-2-2V10a2 2 0 012-2h4m6 8V8a2 2 0 00-2-2h-2a2 2 0 00-2 2v8m6 0a2 2 0 01-2 2h-2a2 2 0 01-2-2"
-                />
-              </svg>
-            </div>
-
-            <h3 class="mt-5 text-2xl font-black tracking-[-0.03em]">Visi</h3>
+            <h3 class="text-2xl font-black tracking-[-0.03em]">Visi</h3>
 
             <p class="mt-4 text-justify text-sm leading-8 text-slate-300 sm:text-base">
               {{ visionMission.meta?.vision }}
@@ -1219,20 +1569,7 @@ const scrollToSection = (id) => {
             data-aos-duration="800"
             class="rounded-[1.75rem] border border-slate-900/5 bg-white p-6 shadow-[0_14px_40px_rgba(2,6,23,0.06)] sm:p-8"
           >
-            <div
-              class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-red-500 to-red-700 text-white shadow-lg shadow-red-500/20"
-            >
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.3"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            </div>
-
-            <h3 class="mt-5 text-2xl font-black tracking-[-0.03em] text-slate-950">
+            <h3 class="text-2xl font-black tracking-[-0.03em] text-slate-950">
               Misi
             </h3>
 
@@ -2003,4 +2340,409 @@ const scrollToSection = (id) => {
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* Logo kabinet: cegah teks custom panjang merusak layout */
+#logo-kabinet,
+#logo-kabinet * {
+  min-width: 0;
+}
+
+#logo-kabinet :is(p, h2, h3, span, div) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#logo-kabinet img {
+  max-width: 100%;
+}
 </style>
+
+
+<style scoped>
+/* Professional Logo Kabinet UI/UX polish
+   Scope aman: hanya memperbaiki tampilan section Logo Kabinet pada halaman Profil. */
+.profil-logo-professional-page .cabinet-logo-professional {
+  position: relative;
+  isolation: isolate;
+}
+
+.profil-logo-professional-page .cabinet-logo-professional::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(239, 68, 68, 0.08), transparent 26rem),
+    radial-gradient(circle at 82% 18%, rgba(15, 23, 42, 0.055), transparent 28rem),
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,247,247,0.70) 48%, #ffffff 100%);
+}
+
+.profil-logo-professional-page .cabinet-logo-professional > .relative {
+  position: relative;
+  z-index: 2;
+}
+
+.profil-logo-professional-page .cabinet-logo-professional h2 {
+  text-wrap: balance;
+}
+
+.profil-logo-professional-page .cabinet-logo-layout {
+  align-items: stretch;
+}
+
+.profil-logo-professional-page .cabinet-logo-card,
+.profil-logo-professional-page .cabinet-meaning-card {
+  border-radius: 2.15rem !important;
+}
+
+.profil-logo-professional-page .cabinet-logo-card {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(239, 68, 68, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96)) !important;
+  box-shadow: 0 24px 68px rgba(15, 23, 42, 0.10) !important;
+}
+
+.profil-logo-professional-page .cabinet-logo-card::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+}
+
+.profil-logo-professional-page .cabinet-logo-card .aspect-square {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(239, 68, 68, 0.055), transparent 48%),
+    linear-gradient(145deg, #ffffff 0%, #fff7f7 52%, #f8fafc 100%) !important;
+  border-color: rgba(226, 232, 240, 0.92) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.92),
+    inset 0 -16px 34px rgba(15,23,42,0.035),
+    0 18px 45px rgba(15,23,42,0.07) !important;
+}
+
+.profil-logo-professional-page .cabinet-logo-card img {
+  filter: drop-shadow(0 18px 30px rgba(15, 23, 42, 0.10));
+}
+
+.profil-logo-professional-page .cabinet-logo-card h3 {
+  text-wrap: balance;
+}
+
+.profil-logo-professional-page .cabinet-meaning-card {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(239, 68, 68, 0.20), transparent 30%),
+    radial-gradient(circle at 0% 100%, rgba(255,255,255,0.10), transparent 34%),
+    linear-gradient(145deg, #080f1f 0%, #111827 54%, #4c0b12 100%) !important;
+  box-shadow: 0 28px 78px rgba(2, 6, 23, 0.24) !important;
+}
+
+.profil-logo-professional-page .cabinet-meaning-card::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.profil-logo-professional-page .cabinet-meaning-card h3 {
+  text-wrap: balance;
+}
+
+.profil-logo-professional-page .cabinet-meaning-card p {
+  letter-spacing: 0.005em;
+}
+
+.profil-logo-professional-page .cabinet-meaning-card .grid > div {
+  background: rgba(255, 255, 255, 0.075) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.profil-logo-professional-page .cabinet-meaning-card .grid > div:hover {
+  background: rgba(255, 255, 255, 0.105) !important;
+}
+
+@media (min-width: 1024px) {
+  .profil-logo-professional-page .cabinet-logo-professional {
+    padding-top: 7rem !important;
+    padding-bottom: 7rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-layout {
+    grid-template-columns: minmax(22rem, 0.86fr) minmax(0, 1.14fr) !important;
+    gap: 2.25rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .aspect-square {
+    max-width: 24rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card {
+    display: flex;
+    align-items: center;
+    min-height: 100%;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card > .relative {
+    width: 100%;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card p.mt-5 {
+    max-width: 68ch;
+    font-size: 0.98rem !important;
+    line-height: 2.05 !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .profil-logo-professional-page .cabinet-logo-layout {
+    gap: 2.75rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .aspect-square {
+    max-width: 25.5rem !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .profil-logo-professional-page .cabinet-logo-professional {
+    padding-top: 4.5rem !important;
+    padding-bottom: 4.5rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-layout {
+    gap: 1.25rem !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .profil-logo-professional-page .cabinet-logo-professional {
+    padding-top: 2.75rem !important;
+    padding-bottom: 3rem !important;
+    background:
+      radial-gradient(circle at 16% 4%, rgba(239,68,68,0.085), transparent 16rem),
+      linear-gradient(180deg, #ffffff 0%, #fff8f8 52%, #ffffff 100%) !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-professional > .relative {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-professional .mb-10 {
+    margin-bottom: 1.25rem !important;
+    text-align: left !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-professional h2 {
+    font-size: clamp(1.55rem, 8vw, 2.08rem) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.048em !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card,
+  .profil-logo-professional-page .cabinet-meaning-card {
+    border-radius: 1.25rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card {
+    padding: 0.9rem !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.075) !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .aspect-square {
+    max-width: 100% !important;
+    border-radius: 1rem !important;
+    padding: 1.15rem !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.92),
+      0 10px 28px rgba(15,23,42,0.06) !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .aspect-square > div {
+    inset: 0.75rem !important;
+    border-radius: 0.9rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card img {
+    max-height: 13.5rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .mt-6 {
+    margin-top: 1.15rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card p {
+    font-size: 0.62rem !important;
+    line-height: 1.35 !important;
+    text-align: center !important;
+    letter-spacing: 0.13em !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card h3 {
+    font-size: 1.2rem !important;
+    line-height: 1.18 !important;
+    margin-top: 0.45rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card {
+    padding: 1rem !important;
+    box-shadow: 0 16px 38px rgba(2, 6, 23, 0.22) !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .inline-flex {
+    max-width: 100%;
+    font-size: 0.58rem !important;
+    letter-spacing: 0.105em !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card h3 {
+    margin-top: 1rem !important;
+    font-size: 1.28rem !important;
+    line-height: 1.18 !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card p.mt-5 {
+    margin-top: 0.85rem !important;
+    font-size: 0.84rem !important;
+    line-height: 1.82 !important;
+    text-align: justify !important;
+    text-align-last: left;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .mt-7 {
+    margin-top: 1rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .grid > div {
+    border-radius: 0.95rem !important;
+    padding: 0.8rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .grid > div p:first-child {
+    font-size: 0.56rem !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .grid > div p:last-child {
+    font-size: 0.82rem !important;
+    line-height: 1.45 !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .rounded-\[1\.35rem\] {
+    margin-top: 1rem !important;
+    border-radius: 1rem !important;
+    padding: 0.9rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .rounded-\[1\.35rem\] .flex {
+    gap: 0.75rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .rounded-\[1\.35rem\] span {
+    width: 2.35rem !important;
+    height: 2.35rem !important;
+    border-radius: 0.85rem !important;
+  }
+
+  .profil-logo-professional-page .cabinet-meaning-card .rounded-\[1\.35rem\] p {
+    font-size: 0.82rem !important;
+    line-height: 1.65 !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card:hover img,
+  .profil-logo-professional-page .cabinet-meaning-card:hover {
+    transform: none !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-professional [class*="blur-"],
+  .profil-logo-professional-page .cabinet-logo-professional [class*="backdrop-blur"] {
+    filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+</style>
+
+
+<style scoped>
+/* Mobile-only fix:
+   Menghapus ornamen lingkaran/blob yang mengganggu di HP dan membuat identitas logo tetap center.
+   Desktop/laptop tidak tersentuh. */
+@media (max-width: 639px) {
+  .profil-logo-professional-page .cabinet-logo-card > .pointer-events-none.absolute.-right-16,
+  .profil-logo-professional-page .cabinet-logo-card > .pointer-events-none.absolute.-bottom-16,
+  .profil-logo-professional-page .cabinet-meaning-card > .pointer-events-none.absolute.-right-20,
+  .profil-logo-professional-page .cabinet-meaning-card > .pointer-events-none.absolute.-bottom-24,
+  .profil-logo-professional-page .cabinet-logo-professional > .pointer-events-none.absolute {
+    display: none !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fff7f7 48%, #ffffff 100%) !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card::before,
+  .profil-logo-professional-page .cabinet-logo-card::after {
+    opacity: 0 !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .relative.z-10.mt-6.text-center {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .relative.z-10.mt-6.text-center p,
+  .profil-logo-professional-page .cabinet-logo-card .relative.z-10.mt-6.text-center h3 {
+    width: 100% !important;
+    text-align: center !important;
+    text-align-last: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .profil-logo-professional-page .cabinet-logo-card .relative.z-10.mt-6.text-center p:last-child {
+    display: block !important;
+    text-align: center !important;
+    letter-spacing: 0.14em !important;
+  }
+}
+</style>
+
+
+<style scoped>
+/* Hide only the large Visi/Misi heading icons.
+   Nomor misi 1, 2, 3, 4 tetap tampil. */
+@media (min-width: 0px) {
+  .profil-logo-professional-page #visi-misi > div > .grid > div:first-child > div.inline-flex.h-12.w-12,
+  .profil-logo-professional-page #visi-misi > div > .grid > div:nth-child(2) > div.inline-flex.h-12.w-12 {
+    display: none !important;
+  }
+
+  .profil-logo-professional-page #visi-misi > div > .grid > div:first-child > h3,
+  .profil-logo-professional-page #visi-misi > div > .grid > div:nth-child(2) > h3 {
+    margin-top: 0 !important;
+  }
+}
+</style>
+

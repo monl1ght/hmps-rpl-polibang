@@ -2,7 +2,6 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import { Head, router, useForm, usePage } from "@inertiajs/vue3";
 import AdminLayout from "@/admin/layouts/AdminLayout.vue";
-import MemberEditForm from "@/admin/components/MemberEditForm.vue";
 
 defineOptions({
   layout: AdminLayout,
@@ -1654,7 +1653,10 @@ onUnmounted(() => {
             <div
               v-for="member in filteredCoreMembers"
               :key="member.id"
-              class="group overflow-hidden rounded-[1.45rem] border border-slate-200 bg-slate-50 transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]"
+              :class="[
+                'group overflow-hidden rounded-[1.45rem] border border-slate-200 bg-slate-50 transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]',
+                editingMember?.id === member.id ? 'member-edit-expanded-card md:col-span-2 xl:col-span-3' : ''
+              ]"
             >
               <div v-if="editingMember?.id !== member.id" class="p-4">
                 <div class="flex gap-4">
@@ -1705,17 +1707,247 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <div v-else class="bg-white p-4">
-                <MemberEditForm
-                  :member-edit-form="memberEditForm"
-                  :divisions="divisions"
-                  :categories="categories"
-                  :edit-preview-photo="editPreviewPhoto"
-                  @submit="updateMember"
-                  @cancel="cancelEditMember"
-                  @photo-change="handleEditPhotoFile"
-                />
-              </div>
+
+                <form
+                  v-else
+                  class="member-edit-panel overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.07)]"
+                  @submit.prevent="updateMember"
+                >
+                  <div
+                    class="member-edit-header flex flex-col gap-3 border-b border-slate-200 bg-[linear-gradient(135deg,#fff7f7,#ffffff)] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5"
+                  >
+                    <div class="min-w-0">
+                      <span
+                        class="inline-flex rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.09em] text-red-700"
+                      >
+                        Mode Edit Pengurus
+                      </span>
+                      <h4
+                        class="mt-3 break-words text-xl font-black leading-tight tracking-[-0.035em] text-slate-950"
+                      >
+                        {{ editingMember?.name || 'Edit Data Pengurus' }}
+                      </h4>
+                      <p class="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                        Perbarui nama, jabatan, kategori, divisi, urutan, dan foto tanpa mengubah data backend.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="inline-flex min-h-[42px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-[0.08em] text-slate-600 shadow-sm transition hover:bg-slate-50"
+                      @click="cancelEditMember"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+
+                  <div class="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:p-5">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Nama Pengurus
+                        </label>
+                        <input
+                          v-model="memberEditForm.name"
+                          type="text"
+                          placeholder="Nama lengkap pengurus"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p
+                          v-if="memberEditForm.errors.name"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.name }}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Jabatan
+                        </label>
+                        <input
+                          v-model="memberEditForm.position"
+                          type="text"
+                          placeholder="Contoh: Ketua HMPS RPL"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p
+                          v-if="memberEditForm.errors.position"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.position }}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Kategori
+                        </label>
+                        <select
+                          v-model="memberEditForm.category"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        >
+                          <option
+                            v-for="category in categories"
+                            :key="`edit-${category.value}`"
+                            :value="category.value"
+                          >
+                            {{ category.label }}
+                          </option>
+                        </select>
+                        <p
+                          v-if="memberEditForm.errors.category"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.category }}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Divisi
+                        </label>
+                        <select
+                          v-model="memberEditForm.management_division_id"
+                          :disabled="memberEditForm.category === 'core'"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          <option value="">Pilih Divisi</option>
+                          <option
+                            v-for="division in divisions"
+                            :key="`edit-division-${division.id}`"
+                            :value="division.id"
+                          >
+                            {{ division.name }}
+                          </option>
+                        </select>
+                        <p
+                          v-if="memberEditForm.category === 'core'"
+                          class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-700"
+                        >
+                          Divisi otomatis dikosongkan untuk kategori Pengurus Inti.
+                        </p>
+                        <p
+                          v-if="memberEditForm.errors.management_division_id"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.management_division_id }}
+                        </p>
+                      </div>
+
+                      <div class="sm:max-w-[13rem]">
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Urutan Tampil
+                        </label>
+                        <input
+                          v-model="memberEditForm.sort_order"
+                          type="number"
+                          min="0"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p
+                          v-if="memberEditForm.errors.sort_order"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.sort_order }}
+                        </p>
+                      </div>
+
+                      <div
+                        class="member-edit-note rounded-[1.15rem] border border-slate-200 bg-slate-50 p-4 sm:col-span-2"
+                      >
+                        <p class="text-sm font-black text-slate-950">
+                          Tips foto pengurus
+                        </p>
+                        <p class="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                          Gunakan foto portrait yang jelas, tidak terlalu gelap, dan wajah berada di tengah agar tampilan card lebih rapi.
+                        </p>
+                      </div>
+                    </div>
+
+                    <aside class="member-edit-photo-card rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-sm font-black text-slate-950">Foto Pengurus</p>
+                      <p class="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                        Preview akan berubah setelah foto baru dipilih.
+                      </p>
+
+                      <div class="mt-4 overflow-hidden rounded-[1.2rem] border border-white bg-white p-2 shadow-inner">
+                        <img
+                          :src="editPreviewPhoto || getPhoto(editingMember?.photo_url)"
+                          :alt="memberEditForm.name || 'Preview foto pengurus'"
+                          class="member-edit-photo-preview h-64 w-full rounded-[1rem] object-cover object-top"
+                        />
+                      </div>
+
+                      <label
+                        class="member-edit-upload mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[1.15rem] border-2 border-dashed border-red-200 bg-white px-4 py-5 text-center transition hover:border-red-300 hover:bg-red-50/60"
+                      >
+                        <span
+                          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm"
+                        >
+                          <svg
+                            class="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2.35"
+                              d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+                            />
+                          </svg>
+                        </span>
+                        <span class="mt-3 text-sm font-black text-slate-950">
+                          Ganti Foto
+                        </span>
+                        <span class="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                          PNG, JPG, JPEG, WEBP • Maks. 4MB
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/webp"
+                          class="sr-only"
+                          @change="handleEditPhotoFile"
+                        />
+                      </label>
+
+                      <p
+                        v-if="memberEditForm.errors.photo_file"
+                        class="mt-2 text-xs font-bold text-red-600"
+                      >
+                        {{ memberEditForm.errors.photo_file }}
+                      </p>
+                    </aside>
+                  </div>
+
+                  <div
+                    class="member-edit-actions flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                  >
+                    <p class="text-xs font-semibold leading-5 text-slate-500">
+                      Pastikan data pengurus sudah benar sebelum disimpan.
+                    </p>
+
+                    <div class="grid gap-2 sm:flex sm:items-center">
+                      <button
+                        type="button"
+                        class="inline-flex min-h-[46px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                        @click="cancelEditMember"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        :disabled="memberEditForm.processing"
+                        class="inline-flex min-h-[46px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#ef4444,#dc2626,#7f1d1d)] px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(220,38,38,0.20)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_38px_rgba(220,38,38,0.26)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                      >
+                        {{ memberEditForm.processing ? "Menyimpan..." : "Simpan Perubahan" }}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
             </div>
 
             <div
@@ -1786,7 +2018,10 @@ onUnmounted(() => {
               <div
                 v-for="member in [...division.coordinators, ...division.members]"
                 :key="member.id"
-                class="group overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]"
+                :class="[
+                  'group overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]',
+                  editingMember?.id === member.id ? 'member-edit-expanded-card md:col-span-2 xl:col-span-3' : ''
+                ]"
               >
                 <div v-if="editingMember?.id !== member.id" class="p-4">
                   <div class="flex gap-4">
@@ -1839,17 +2074,247 @@ onUnmounted(() => {
                   </div>
                 </div>
 
-                <div v-else class="p-4">
-                  <MemberEditForm
-                    :member-edit-form="memberEditForm"
-                    :divisions="divisions"
-                    :categories="categories"
-                    :edit-preview-photo="editPreviewPhoto"
-                    @submit="updateMember"
-                    @cancel="cancelEditMember"
-                    @photo-change="handleEditPhotoFile"
-                  />
-                </div>
+
+                <form
+                  v-else
+                  class="member-edit-panel overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.07)]"
+                  @submit.prevent="updateMember"
+                >
+                  <div
+                    class="member-edit-header flex flex-col gap-3 border-b border-slate-200 bg-[linear-gradient(135deg,#fff7f7,#ffffff)] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5"
+                  >
+                    <div class="min-w-0">
+                      <span
+                        class="inline-flex rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.09em] text-red-700"
+                      >
+                        Mode Edit Pengurus
+                      </span>
+                      <h4
+                        class="mt-3 break-words text-xl font-black leading-tight tracking-[-0.035em] text-slate-950"
+                      >
+                        {{ editingMember?.name || 'Edit Data Pengurus' }}
+                      </h4>
+                      <p class="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                        Perbarui nama, jabatan, kategori, divisi, urutan, dan foto tanpa mengubah data backend.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="inline-flex min-h-[42px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-black uppercase tracking-[0.08em] text-slate-600 shadow-sm transition hover:bg-slate-50"
+                      @click="cancelEditMember"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+
+                  <div class="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:p-5">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Nama Pengurus
+                        </label>
+                        <input
+                          v-model="memberEditForm.name"
+                          type="text"
+                          placeholder="Nama lengkap pengurus"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p
+                          v-if="memberEditForm.errors.name"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.name }}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Jabatan
+                        </label>
+                        <input
+                          v-model="memberEditForm.position"
+                          type="text"
+                          placeholder="Contoh: Ketua HMPS RPL"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p
+                          v-if="memberEditForm.errors.position"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.position }}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Kategori
+                        </label>
+                        <select
+                          v-model="memberEditForm.category"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        >
+                          <option
+                            v-for="category in categories"
+                            :key="`edit-${category.value}`"
+                            :value="category.value"
+                          >
+                            {{ category.label }}
+                          </option>
+                        </select>
+                        <p
+                          v-if="memberEditForm.errors.category"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.category }}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Divisi
+                        </label>
+                        <select
+                          v-model="memberEditForm.management_division_id"
+                          :disabled="memberEditForm.category === 'core'"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          <option value="">Pilih Divisi</option>
+                          <option
+                            v-for="division in divisions"
+                            :key="`edit-division-${division.id}`"
+                            :value="division.id"
+                          >
+                            {{ division.name }}
+                          </option>
+                        </select>
+                        <p
+                          v-if="memberEditForm.category === 'core'"
+                          class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-700"
+                        >
+                          Divisi otomatis dikosongkan untuk kategori Pengurus Inti.
+                        </p>
+                        <p
+                          v-if="memberEditForm.errors.management_division_id"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.management_division_id }}
+                        </p>
+                      </div>
+
+                      <div class="sm:max-w-[13rem]">
+                        <label class="mb-2 block text-sm font-extrabold text-slate-800">
+                          Urutan Tampil
+                        </label>
+                        <input
+                          v-model="memberEditForm.sort_order"
+                          type="number"
+                          min="0"
+                          class="h-[3.15rem] w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+                        />
+                        <p
+                          v-if="memberEditForm.errors.sort_order"
+                          class="mt-2 text-xs font-bold text-red-600"
+                        >
+                          {{ memberEditForm.errors.sort_order }}
+                        </p>
+                      </div>
+
+                      <div
+                        class="member-edit-note rounded-[1.15rem] border border-slate-200 bg-slate-50 p-4 sm:col-span-2"
+                      >
+                        <p class="text-sm font-black text-slate-950">
+                          Tips foto pengurus
+                        </p>
+                        <p class="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                          Gunakan foto portrait yang jelas, tidak terlalu gelap, dan wajah berada di tengah agar tampilan card lebih rapi.
+                        </p>
+                      </div>
+                    </div>
+
+                    <aside class="member-edit-photo-card rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-sm font-black text-slate-950">Foto Pengurus</p>
+                      <p class="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                        Preview akan berubah setelah foto baru dipilih.
+                      </p>
+
+                      <div class="mt-4 overflow-hidden rounded-[1.2rem] border border-white bg-white p-2 shadow-inner">
+                        <img
+                          :src="editPreviewPhoto || getPhoto(editingMember?.photo_url)"
+                          :alt="memberEditForm.name || 'Preview foto pengurus'"
+                          class="member-edit-photo-preview h-64 w-full rounded-[1rem] object-cover object-top"
+                        />
+                      </div>
+
+                      <label
+                        class="member-edit-upload mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[1.15rem] border-2 border-dashed border-red-200 bg-white px-4 py-5 text-center transition hover:border-red-300 hover:bg-red-50/60"
+                      >
+                        <span
+                          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600 shadow-sm"
+                        >
+                          <svg
+                            class="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2.35"
+                              d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+                            />
+                          </svg>
+                        </span>
+                        <span class="mt-3 text-sm font-black text-slate-950">
+                          Ganti Foto
+                        </span>
+                        <span class="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                          PNG, JPG, JPEG, WEBP • Maks. 4MB
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/webp"
+                          class="sr-only"
+                          @change="handleEditPhotoFile"
+                        />
+                      </label>
+
+                      <p
+                        v-if="memberEditForm.errors.photo_file"
+                        class="mt-2 text-xs font-bold text-red-600"
+                      >
+                        {{ memberEditForm.errors.photo_file }}
+                      </p>
+                    </aside>
+                  </div>
+
+                  <div
+                    class="member-edit-actions flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                  >
+                    <p class="text-xs font-semibold leading-5 text-slate-500">
+                      Pastikan data pengurus sudah benar sebelum disimpan.
+                    </p>
+
+                    <div class="grid gap-2 sm:flex sm:items-center">
+                      <button
+                        type="button"
+                        class="inline-flex min-h-[46px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                        @click="cancelEditMember"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        :disabled="memberEditForm.processing"
+                        class="inline-flex min-h-[46px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#ef4444,#dc2626,#7f1d1d)] px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(220,38,38,0.20)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_38px_rgba(220,38,38,0.26)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                      >
+                        {{ memberEditForm.processing ? "Menyimpan..." : "Simpan Perubahan" }}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
               </div>
 
               <div
@@ -2215,3 +2680,170 @@ onUnmounted(() => {
   }
 }
 </style>
+
+
+<style scoped>
+/* Professional edit UX polish for Custom Kepengurusan.
+   Tidak mengubah backend: field, route, method, dan payload tetap sama. */
+.custom-kepengurusan-mobile-page {
+  isolation: isolate;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-expanded-card {
+  background: #ffffff !important;
+  border-color: rgba(239, 68, 68, 0.22) !important;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.10) !important;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-expanded-card:hover {
+  transform: none !important;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-panel {
+  width: 100%;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-panel :is(input, select) {
+  color: #0f172a;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-panel :is(input, select):focus {
+  border-color: rgba(220, 38, 38, 0.45) !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.10) !important;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-photo-preview {
+  background:
+    linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.custom-kepengurusan-mobile-page .member-edit-upload {
+  min-height: 8.75rem;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-actions {
+  position: relative;
+}
+
+@media (min-width: 768px) {
+  .custom-kepengurusan-mobile-page .member-edit-expanded-card {
+    grid-column: span 2 / span 2;
+  }
+}
+
+@media (min-width: 1280px) {
+  .custom-kepengurusan-mobile-page .member-edit-expanded-card {
+    grid-column: span 3 / span 3;
+  }
+}
+
+@media (min-width: 1024px) {
+  .custom-kepengurusan-mobile-page .member-edit-photo-card {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+  }
+}
+
+@media (max-width: 639px) {
+  .custom-kepengurusan-mobile-page .member-edit-panel {
+    border-radius: 1.05rem !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.065) !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-header {
+    padding: 0.95rem !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-header h4 {
+    font-size: 1.05rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-panel > .grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 0.95rem !important;
+    gap: 0.95rem !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-panel .grid.gap-4.sm\:grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.85rem !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-note {
+    padding: 0.85rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-photo-card {
+    padding: 0.85rem !important;
+    border-radius: 1rem !important;
+    order: -1;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-photo-preview {
+    height: 15rem !important;
+    width: 100% !important;
+    object-position: top center;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-upload {
+    min-height: 7.25rem !important;
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 15;
+    margin-left: -1px;
+    margin-right: -1px;
+    padding: 0.9rem !important;
+    border-radius: 0 0 1.05rem 1.05rem;
+    background: rgba(248, 250, 252, 0.96) !important;
+    backdrop-filter: blur(12px);
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-actions > div {
+    display: grid !important;
+    grid-template-columns: 0.85fr 1.15fr !important;
+    width: 100%;
+  }
+
+  .custom-kepengurusan-mobile-page .member-edit-actions button {
+    width: 100% !important;
+    min-height: 46px !important;
+  }
+}
+</style>
+
+
+<style scoped>
+/* Fix edit form visibility/layout:
+   Form edit hanya muncul pada pengurus yang sedang diedit.
+   Card lain tetap tampil normal agar layout tidak berantakan. */
+.custom-kepengurusan-mobile-page .member-edit-expanded-card {
+  background: #ffffff !important;
+  transform: none !important;
+}
+
+.custom-kepengurusan-mobile-page .member-edit-expanded-card .member-edit-panel {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .custom-kepengurusan-mobile-page .member-edit-expanded-card {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .custom-kepengurusan-mobile-page .member-edit-expanded-card {
+    grid-column: auto !important;
+  }
+}
+</style>
+

@@ -355,6 +355,25 @@ Route::prefix('admin')
 
                     Route::delete('/hero-images/{profileHeroImage}', 'destroyHeroImage')
                         ->name('hero-images.destroy');
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Admin Custom Profil - Cabinet Logo
+                    |--------------------------------------------------------------------------
+                    | URL final:
+                    | POST   /admin/profil/cabinet-logo
+                    | POST   /admin/profil/cabinet-logo/{profileCabinetLogo}
+                    | DELETE /admin/profil/cabinet-logo/{profileCabinetLogo}
+                    */
+
+                    Route::post('/cabinet-logo', 'storeCabinetLogoImage')
+                        ->name('cabinet-logo.store');
+
+                    Route::post('/cabinet-logo/{profileCabinetLogo}', 'updateCabinetLogoImage')
+                        ->name('cabinet-logo.update');
+
+                    Route::delete('/cabinet-logo/{profileCabinetLogo}', 'destroyCabinetLogoImage')
+                        ->name('cabinet-logo.destroy');
                 });
 
             /*

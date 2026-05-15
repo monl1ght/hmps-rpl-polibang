@@ -372,7 +372,7 @@ const contactAriaLabel = (item) => {
             </Link>
 
             <p
-              class="mt-4 line-clamp-2 max-w-xl text-sm leading-6 text-slate-400 sm:mt-5 sm:line-clamp-3 sm:leading-7 lg:text-justify"
+              class="mt-4 max-w-xl text-justify text-sm leading-6 text-slate-400 sm:mt-5 sm:leading-7 [text-align-last:left] [overflow-wrap:break-word]"
             >
               {{ footer.description }}
             </p>
@@ -387,7 +387,7 @@ const contactAriaLabel = (item) => {
               </p>
 
               <p
-                class="mt-1.5 line-clamp-2 text-[0.82rem] leading-6 text-slate-400 sm:text-sm sm:leading-7"
+                class="mt-1.5 text-justify text-[0.82rem] leading-6 text-slate-400 sm:text-sm sm:leading-7 [text-align-last:left] [overflow-wrap:break-word]"
               >
                 {{ footer.identityText }}
               </p>
@@ -608,7 +608,9 @@ const contactAriaLabel = (item) => {
                 </span>
               </div>
 
-              <div class="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2.5">
+              <div
+                class="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2.5"
+              >
                 <component
                   v-for="item in quickContactItems"
                   :key="item.id || `${item.type}-${item.title}`"
