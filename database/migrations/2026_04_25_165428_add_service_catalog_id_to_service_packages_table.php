@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('service_packages', function (Blueprint $table) {
+            if (! Schema::hasColumn('service_packages', 'service_catalog_id')) {
+                $table->foreignId('service_catalog_id')
+                    ->nullable()
+                    ->after('id')
+                    ->constrained('service_catalogs')
+                    ->nullOnDelete();
+
+                $table->index(['service_catalog_id', 'is_active', 'sort_order']);
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('service_packages', function (Blueprint $table) {
+            if (Schema::hasColumn('service_packages', 'service_catalog_id')) {
+                $table->dropConstrainedForeignId('service_catalog_id');
+            }
+        });
+    }
+};
