@@ -1475,36 +1475,6 @@ const scrollToSection = (id) => {
                     </p>
                   </div>
                 </div>
-
-                <div
-                  class="mt-7 rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 sm:p-5"
-                >
-                  <div class="flex items-start gap-3">
-                    <span
-                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-500/20 text-red-100 ring-1 ring-white/10"
-                      aria-hidden="true"
-                    >
-                      <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2.35"
-                          d="M12 3l2.35 4.76 5.25.76-3.8 3.7.9 5.23L12 14.98l-4.7 2.47.9-5.23-3.8-3.7 5.25-.76L12 3z"
-                        />
-                      </svg>
-                    </span>
-
-                    <p class="break-words text-justify text-sm leading-7 text-slate-300 [overflow-wrap:anywhere]">
-                      Bagian ini disiapkan agar konten logo kabinet dapat dikelola dari
-                      backend tanpa mengubah layout halaman profil.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
