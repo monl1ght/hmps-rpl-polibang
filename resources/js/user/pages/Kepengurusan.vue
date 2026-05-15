@@ -440,6 +440,21 @@ const getInitials = (name) => {
     .join("") || "HR";
 };
 
+const normalizeRoleLabel = (role, fallback = "Pengurus Inti") => {
+  const value = String(role || fallback).trim();
+
+  if (!value) return fallback;
+
+  const normalized = value.toLowerCase();
+
+  if (normalized === "kettua" || normalized === "ketuaa") return "Ketua";
+  if (normalized === "ketua") return "Ketua";
+  if (normalized === "sekretaris") return "Sekretaris";
+  if (normalized === "bendahara") return "Bendahara";
+
+  return value;
+};
+
 const getDivisionMembers = (division) => {
   return Array.isArray(division?.members) ? division.members : [];
 };
@@ -1013,7 +1028,7 @@ onUnmounted(() => {
                 openPersonDetail(
                   formatPersonPayload({
                     name: leader.name,
-                    role: leader.role,
+                    role: normalizeRoleLabel(leader.role),
                     photo: getPhoto(leader),
                     description:
                       'Pengurus inti HMPS RPL yang berperan aktif dalam koordinasi dan pelaksanaan kegiatan organisasi.',
@@ -1024,27 +1039,18 @@ onUnmounted(() => {
               <div
                 class="relative h-52 overflow-hidden bg-slate-100 min-[390px]:h-56 sm:h-72"
               >
-                <template v-if="isDesktopHeroVisualVisible">
-                  <img
-                    :src="getPhoto(leader)"
-                    :srcset="getPhotoSrcset(leader) || null"
-                    sizes="(max-width: 1024px) 44vw, 360px"
-                    :alt="leader.name || 'Pengurus HMPS RPL'"
-                    width="760"
-                    height="950"
-                    loading="lazy"
-                    fetchpriority="low"
-                    decoding="async"
-                    class="block h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                </template>
-                <div
-                  v-else
-                  class="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(239,68,68,0.26),transparent_34%),linear-gradient(135deg,#0f172a,#1e293b)] text-5xl font-black tracking-[-0.08em] text-white"
-                  aria-hidden="true"
-                >
-                  {{ getInitials(leader.name) }}
-                </div>
+                <img
+                  :src="getPhoto(leader)"
+                  :srcset="getPhotoSrcset(leader) || null"
+                  sizes="(max-width: 640px) 92vw, (max-width: 1024px) 44vw, 360px"
+                  :alt="leader.name || 'Pengurus HMPS RPL'"
+                  width="760"
+                  height="950"
+                  :loading="index === 0 ? 'eager' : 'lazy'"
+                  :fetchpriority="index === 0 ? 'high' : 'low'"
+                  decoding="async"
+                  class="block h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
                 <div
                   class="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,11,22,0.76),rgba(6,11,22,0.12)_58%,transparent)]"
                   aria-hidden="true"
@@ -1052,7 +1058,7 @@ onUnmounted(() => {
                 <span
                   class="absolute left-4 top-4 inline-flex max-w-[calc(100%-2rem)] rounded-full bg-red-600 px-3 py-1.5 text-[0.66rem] font-extrabold uppercase tracking-[0.06em] text-white shadow-[0_12px_24px_rgba(2,6,23,0.16)] sm:text-[0.68rem]"
                 >
-                  {{ leader.role || "Pengurus Inti" }}
+                  {{ normalizeRoleLabel(leader.role) }}
                 </span>
               </div>
 
@@ -1256,37 +1262,28 @@ onUnmounted(() => {
                     <div
                       class="relative h-56 overflow-hidden bg-slate-100 min-[390px]:h-64 sm:h-80 lg:h-full lg:min-h-[320px]"
                     >
-                      <template v-if="isDesktopHeroVisualVisible">
-                        <img
-                          :src="
-                            getPhoto(
-                              division.coordinator,
-                              'https://i.pravatar.cc/600?img=20'
-                            )
-                          "
-                          :srcset="
-                            getPhotoSrcset(
-                              division.coordinator,
-                              'https://i.pravatar.cc/600?img=20'
-                            ) || null
-                          "
-                          sizes="(max-width: 1024px) 80vw, 280px"
-                          :alt="division.coordinator.name"
-                          width="760"
-                          height="950"
-                          loading="lazy"
-                          fetchpriority="low"
-                          decoding="async"
-                          class="h-full w-full object-cover transition duration-700 hover:scale-[1.04]"
-                        />
-                      </template>
-                      <div
-                        v-else
-                        class="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(239,68,68,0.24),transparent_34%),linear-gradient(135deg,#0f172a,#1e293b)] text-5xl font-black tracking-[-0.08em] text-white"
-                        aria-hidden="true"
-                      >
-                        {{ getInitials(division.coordinator.name) }}
-                      </div>
+                      <img
+                        :src="
+                          getPhoto(
+                            division.coordinator,
+                            'https://i.pravatar.cc/600?img=20'
+                          )
+                        "
+                        :srcset="
+                          getPhotoSrcset(
+                            division.coordinator,
+                            'https://i.pravatar.cc/600?img=20'
+                          ) || null
+                        "
+                        sizes="(max-width: 640px) 92vw, (max-width: 1024px) 80vw, 280px"
+                        :alt="division.coordinator.name || 'Koordinator Divisi HMPS RPL'"
+                        width="760"
+                        height="950"
+                        loading="lazy"
+                        fetchpriority="low"
+                        decoding="async"
+                        class="h-full w-full object-cover transition duration-700 hover:scale-[1.04]"
+                      />
                       <div
                         class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/35 to-transparent"
                         aria-hidden="true"
@@ -1395,30 +1392,21 @@ onUnmounted(() => {
                       "
                     >
                       <div class="relative overflow-hidden bg-slate-100">
-                        <template v-if="isDesktopHeroVisualVisible">
-                          <img
-                            :src="getPhoto(member, 'https://i.pravatar.cc/500?img=40')"
-                            :srcset="
-                              getPhotoSrcset(member, 'https://i.pravatar.cc/500?img=40') ||
-                              null
-                            "
-                            sizes="(max-width: 1024px) 44vw, 260px"
-                            :alt="member.name"
-                            width="520"
-                            height="650"
-                            loading="lazy"
-                            fetchpriority="low"
-                            decoding="async"
-                            class="h-40 w-full object-cover transition duration-700 group-hover:scale-[1.04] min-[390px]:h-44 sm:h-72"
-                          />
-                        </template>
-                        <div
-                          v-else
-                          class="flex h-40 w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(239,68,68,0.22),transparent_34%),linear-gradient(135deg,#0f172a,#1e293b)] text-4xl font-black tracking-[-0.08em] text-white min-[390px]:h-44"
-                          aria-hidden="true"
-                        >
-                          {{ getInitials(member.name) }}
-                        </div>
+                        <img
+                          :src="getPhoto(member, 'https://i.pravatar.cc/500?img=40')"
+                          :srcset="
+                            getPhotoSrcset(member, 'https://i.pravatar.cc/500?img=40') ||
+                            null
+                          "
+                          sizes="(max-width: 640px) 46vw, (max-width: 1024px) 44vw, 260px"
+                          :alt="member.name || 'Anggota HMPS RPL'"
+                          width="520"
+                          height="650"
+                          loading="lazy"
+                          fetchpriority="low"
+                          decoding="async"
+                          class="h-40 w-full object-cover transition duration-700 group-hover:scale-[1.04] min-[390px]:h-44 sm:h-72"
+                        />
                         <div
                           class="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)]"
                           aria-hidden="true"
