@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Head } from "@inertiajs/vue3";
 import UserLayout from "@/user/layouts/UserLayout.vue";
 
@@ -82,16 +82,88 @@ const fallbackHeroImages = [
 const fallbackPhoto = "https://i.pravatar.cc/600?img=32";
 
 const selectedPerson = ref(null);
+const isMobileViewport = ref(
+  typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+);
+const prefersReducedMotion = ref(
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+);
 const isDesktopHeroVisualVisible = ref(
   typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
 );
 
 let heroVisualMediaQuery = null;
+let reducedMotionMediaQuery = null;
 
 const updateHeroVisualVisibility = () => {
   if (typeof window === "undefined") return;
 
+  isMobileViewport.value = window.matchMedia("(max-width: 767px)").matches;
   isDesktopHeroVisualVisible.value = window.matchMedia("(min-width: 768px)").matches;
+};
+
+const updateMotionPreference = () => {
+  if (typeof window === "undefined") return;
+
+  prefersReducedMotion.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
+
+const aosAnimation = (desktopAnimation = "fade-up", mobileAnimation = "fade-up") => {
+  if (prefersReducedMotion.value) return "fade-up";
+
+  return isMobileViewport.value ? mobileAnimation : desktopAnimation;
+};
+
+const aosDuration = (desktopDuration = 760, mobileDuration = 540) => {
+  if (prefersReducedMotion.value) return 1;
+
+  return isMobileViewport.value ? mobileDuration : desktopDuration;
+};
+
+const aosOffset = (desktopOffset = 88, mobileOffset = 42) => {
+  if (prefersReducedMotion.value) return 0;
+
+  return isMobileViewport.value ? mobileOffset : desktopOffset;
+};
+
+const aosDelay = (index = 0, step = 70, maxDelay = 280) => {
+  if (prefersReducedMotion.value) return 0;
+
+  const safeIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
+  const safeStep = Math.max(0, Number(step) || 0);
+  const mobileStep = Math.min(safeStep, 42);
+  const safeMax = Math.max(0, Number(maxDelay) || 0);
+  const mobileMax = Math.min(safeMax, 150);
+
+  return Math.min(safeIndex * (isMobileViewport.value ? mobileStep : safeStep), isMobileViewport.value ? mobileMax : safeMax);
+};
+
+const refreshAos = () => {
+  if (typeof window === "undefined") return;
+
+  nextTick(() => {
+    const runRefresh = () => {
+      const aos = window.AOS;
+
+      if (!aos) return;
+
+      if (typeof aos.refreshHard === "function") {
+        aos.refreshHard();
+        return;
+      }
+
+      if (typeof aos.refresh === "function") {
+        aos.refresh();
+      }
+    };
+
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(runRefresh);
+      return;
+    }
+
+    window.setTimeout(runRefresh, 0);
+  });
 };
 
 const leaders = computed(() => (Array.isArray(props.topLeaders) ? props.topLeaders : []));
@@ -556,17 +628,41 @@ const handleEscape = (event) => {
   }
 };
 
+watch(
+  () => [
+    leaders.value.length,
+    divisions.value.length,
+    totalMembers.value,
+    computedStats.value.length,
+    heroImages.value.map((image) => image.src).join("|"),
+    isDesktopHeroVisualVisible.value,
+  ],
+  refreshAos,
+  { flush: "post" }
+);
+
 onMounted(() => {
   window.addEventListener("keydown", handleEscape);
 
   heroVisualMediaQuery = window.matchMedia("(min-width: 768px)");
-  isDesktopHeroVisualVisible.value = heroVisualMediaQuery.matches;
+  reducedMotionMediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  updateHeroVisualVisibility();
+  updateMotionPreference();
 
   if (typeof heroVisualMediaQuery.addEventListener === "function") {
     heroVisualMediaQuery.addEventListener("change", updateHeroVisualVisibility);
   } else if (typeof heroVisualMediaQuery.addListener === "function") {
     heroVisualMediaQuery.addListener(updateHeroVisualVisibility);
   }
+
+  if (typeof reducedMotionMediaQuery.addEventListener === "function") {
+    reducedMotionMediaQuery.addEventListener("change", updateMotionPreference);
+  } else if (typeof reducedMotionMediaQuery.addListener === "function") {
+    reducedMotionMediaQuery.addListener(updateMotionPreference);
+  }
+
+  refreshAos();
 });
 
 onUnmounted(() => {
@@ -577,6 +673,14 @@ onUnmounted(() => {
       heroVisualMediaQuery.removeEventListener("change", updateHeroVisualVisibility);
     } else if (typeof heroVisualMediaQuery.removeListener === "function") {
       heroVisualMediaQuery.removeListener(updateHeroVisualVisibility);
+    }
+  }
+
+  if (reducedMotionMediaQuery) {
+    if (typeof reducedMotionMediaQuery.removeEventListener === "function") {
+      reducedMotionMediaQuery.removeEventListener("change", updateMotionPreference);
+    } else if (typeof reducedMotionMediaQuery.removeListener === "function") {
+      reducedMotionMediaQuery.removeListener(updateMotionPreference);
     }
   }
 
@@ -645,7 +749,12 @@ onUnmounted(() => {
         <div
           class="grid grid-cols-1 items-center gap-8 sm:gap-10 lg:grid-cols-2 xl:gap-14"
         >
-          <div>
+          <div
+            :data-aos="aosAnimation('fade-right', 'fade-up')"
+            :data-aos-duration="aosDuration(860, 560)"
+            :data-aos-offset="aosOffset(90, 36)"
+            data-aos-easing="ease-out-cubic"
+          >
             <div
               class="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/85 px-3 py-2 text-[0.66rem] font-extrabold uppercase tracking-[0.07em] text-red-700 shadow-[0_12px_35px_rgba(2,6,23,0.06)] backdrop-blur-xl sm:mb-5 sm:text-[0.75rem]"
             >
@@ -673,7 +782,14 @@ onUnmounted(() => {
               {{ heroConfig.description }}
             </p>
 
-            <div class="mt-8 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+            <div
+              class="mt-8 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3"
+              :data-aos="aosAnimation('fade-up', 'fade-up')"
+              :data-aos-delay="aosDelay(1, 90, 180)"
+              :data-aos-duration="aosDuration(680, 500)"
+              :data-aos-offset="aosOffset(72, 32)"
+              data-aos-easing="ease-out-cubic"
+            >
               <button
                 type="button"
                 @click="handleHeroAction(heroConfig.primaryButtonUrl, 'pengurus-inti')"
@@ -761,8 +877,13 @@ onUnmounted(() => {
 
             <div class="mt-6 grid grid-cols-3 gap-2 sm:mt-8 sm:max-w-xl sm:gap-3">
               <div
-                v-for="item in computedStats"
+                v-for="(item, index) in computedStats"
                 :key="item.label"
+                :data-aos="aosAnimation('zoom-in-up', 'fade-up')"
+                :data-aos-delay="aosDelay(index, 55, 140)"
+                :data-aos-duration="aosDuration(620, 480)"
+                :data-aos-offset="aosOffset(62, 28)"
+                data-aos-easing="ease-out-cubic"
                 class="rounded-2xl border border-slate-900/5 bg-white/80 p-2.5 shadow-[0_10px_28px_rgba(2,6,23,0.05)] backdrop-blur-xl sm:p-4"
               >
                 <div
@@ -781,6 +902,10 @@ onUnmounted(() => {
 
           <div
             v-if="isDesktopHeroVisualVisible"
+            :data-aos="aosAnimation('fade-left', 'fade-up')"
+            :data-aos-duration="aosDuration(880, 560)"
+            :data-aos-offset="aosOffset(100, 38)"
+            data-aos-easing="ease-out-cubic"
             class="relative mx-auto w-full max-w-[31rem] sm:max-w-[37rem] lg:mx-auto"
           >
             <div
@@ -914,6 +1039,11 @@ onUnmounted(() => {
 
           <div
             v-else
+            :data-aos="aosAnimation('fade-up', 'fade-up')"
+            :data-aos-delay="aosDelay(1, 60, 120)"
+            :data-aos-duration="aosDuration(640, 500)"
+            :data-aos-offset="aosOffset(70, 32)"
+            data-aos-easing="ease-out-cubic"
             class="relative mx-auto w-full max-w-[31rem] lg:hidden"
             aria-label="Ringkasan struktur kepengurusan HMPS RPL"
           >
@@ -952,8 +1082,13 @@ onUnmounted(() => {
 
               <div class="relative z-10 mt-5 grid grid-cols-3 gap-2">
                 <div
-                  v-for="item in computedStats"
+                  v-for="(item, index) in computedStats"
                   :key="`mobile-${item.label}`"
+                  :data-aos="aosAnimation('zoom-in-up', 'fade-up')"
+                  :data-aos-delay="aosDelay(index, 42, 120)"
+                  :data-aos-duration="aosDuration(560, 440)"
+                  :data-aos-offset="aosOffset(54, 24)"
+                  data-aos-easing="ease-out-cubic"
                   class="rounded-2xl border border-slate-900/[0.06] bg-slate-50/80 px-3 py-3"
                 >
                   <div class="text-lg font-black tracking-[-0.04em] text-slate-950">
@@ -1007,8 +1142,10 @@ onUnmounted(() => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mb-8 max-w-3xl sm:mb-14 lg:mb-16"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up', 'fade-up')"
+          :data-aos-duration="aosDuration(760, 520)"
+          :data-aos-offset="aosOffset(84, 38)"
+          data-aos-easing="ease-out-cubic"
         >
           <div
             class="mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700 sm:mb-5"
@@ -1043,9 +1180,11 @@ onUnmounted(() => {
           <article
             v-for="(leader, index) in leaders"
             :key="leader.name || index"
-            :data-aos-delay="index * 90"
-            data-aos="fade-up"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up', 'fade-up')"
+            :data-aos-delay="aosDelay(index, 75, 300)"
+            :data-aos-duration="aosDuration(720, 520)"
+            :data-aos-offset="aosOffset(74, 34)"
+            data-aos-easing="ease-out-cubic"
             class="group overflow-hidden rounded-[1.35rem] border border-slate-900/5 bg-white text-left shadow-[0_12px_34px_rgba(2,6,23,0.06)] outline-none transition-all duration-300 hover:-translate-y-2 hover:border-red-500/20 hover:shadow-[0_30px_75px_rgba(2,6,23,0.14)] sm:rounded-[1.6rem]"
           >
             <button
@@ -1142,8 +1281,10 @@ onUnmounted(() => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mb-8 max-w-3xl sm:mb-14 lg:mb-16"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up', 'fade-up')"
+          :data-aos-duration="aosDuration(760, 520)"
+          :data-aos-offset="aosOffset(84, 38)"
+          data-aos-easing="ease-out-cubic"
         >
           <div
             class="mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700 sm:mb-5"
@@ -1176,9 +1317,11 @@ onUnmounted(() => {
           <article
             v-for="(division, index) in divisions"
             :key="division.name || index"
-            data-aos="fade-up"
-            :data-aos-delay="index * 70"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up', 'fade-up')"
+            :data-aos-delay="aosDelay(index, 70, 280)"
+            :data-aos-duration="aosDuration(740, 520)"
+            :data-aos-offset="aosOffset(78, 34)"
+            data-aos-easing="ease-out-cubic"
             class="overflow-hidden rounded-[1.55rem] border border-slate-900/5 bg-white shadow-[0_14px_40px_rgba(2,6,23,0.06)] transition-all duration-300 hover:shadow-[0_28px_70px_rgba(2,6,23,0.11)] sm:rounded-[1.85rem]"
           >
             <div
@@ -1251,6 +1394,11 @@ onUnmounted(() => {
 
                 <div
                   v-if="division.coordinator"
+                  :data-aos="aosAnimation('fade-up', 'fade-up')"
+                  :data-aos-delay="aosDelay(1, 55, 110)"
+                  :data-aos-duration="aosDuration(660, 500)"
+                  :data-aos-offset="aosOffset(62, 28)"
+                  data-aos-easing="ease-out-cubic"
                   class="overflow-hidden rounded-[1.35rem] border border-red-100 bg-gradient-to-br from-red-50 via-white to-white shadow-[0_14px_40px_rgba(2,6,23,0.04)] sm:rounded-[1.55rem]"
                 >
                   <article
@@ -1395,8 +1543,13 @@ onUnmounted(() => {
                   class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-4"
                 >
                   <article
-                    v-for="member in getDivisionMembers(division)"
+                    v-for="(member, memberIndex) in getDivisionMembers(division)"
                     :key="member.name"
+                    :data-aos="aosAnimation('fade-up', 'fade-up')"
+                    :data-aos-delay="aosDelay(memberIndex % 4, 42, 126)"
+                    :data-aos-duration="aosDuration(620, 460)"
+                    :data-aos-offset="aosOffset(56, 24)"
+                    data-aos-easing="ease-out-cubic"
                     class="group overflow-hidden rounded-[1.1rem] border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_18px_40px_rgba(15,23,42,0.10)] sm:rounded-[1.5rem]"
                   >
                     <button
@@ -1513,8 +1666,10 @@ onUnmounted(() => {
     <section id="closing" class="cv-auto bg-white py-12 sm:py-20">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('zoom-in-up', 'fade-up')"
+          :data-aos-duration="aosDuration(780, 540)"
+          :data-aos-offset="aosOffset(86, 38)"
+          data-aos-easing="ease-out-cubic"
           class="relative overflow-hidden rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(135deg,#0f172a,#111827_55%,#1e293b)] px-5 py-7 text-white shadow-[0_20px_60px_rgba(2,6,23,0.16)] sm:rounded-[2rem] sm:px-8 sm:py-10 lg:px-12 lg:py-12"
         >
           <div
@@ -1744,6 +1899,13 @@ onUnmounted(() => {
 
   .management-hero-shine {
     display: none;
+  }
+
+  :deep([data-aos]),
+  :deep([data-aos].aos-animate) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 
   * {

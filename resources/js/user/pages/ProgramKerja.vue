@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Head } from "@inertiajs/vue3";
 import UserLayout from "@/user/layouts/UserLayout.vue";
 
@@ -382,8 +382,12 @@ const defaultProgramImage =
 const selectedCategory = ref("Semua");
 const selectedProgram = ref(null);
 const showHeroVisual = ref(false);
+const isMobileViewport = ref(false);
+const prefersReducedMotion = ref(false);
 
 let heroVisualMediaQuery = null;
+let mobileViewportMediaQuery = null;
+let reducedMotionMediaQuery = null;
 
 const ticks = computed(() => {
   const items =
@@ -607,6 +611,61 @@ const getProgramBenefits = (program) => getSafeList(program?.benefits || program
 const getProgramSources = (program) =>
   getSafeList(program?.sources || program?.fundingSources || program?.funding_sources);
 
+const clampNumber = (value, min = 0, max = 300) => {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(Math.max(number, min), max);
+};
+
+const aosAnimation = (desktopAnimation = "fade-up", mobileAnimation = "fade-up") => {
+  if (prefersReducedMotion.value) return "fade-up";
+  return isMobileViewport.value ? mobileAnimation : desktopAnimation;
+};
+
+const aosDelay = (index = 0, step = 70, maxDelay = 240) => {
+  if (prefersReducedMotion.value) return 0;
+  const safeStep = isMobileViewport.value ? Math.min(step, 45) : step;
+  const safeMax = isMobileViewport.value ? Math.min(maxDelay, 135) : maxDelay;
+  return clampNumber(index * safeStep, 0, safeMax);
+};
+
+const aosDuration = (desktopDuration = 780, mobileDuration = 620) => {
+  if (prefersReducedMotion.value) return 1;
+  return isMobileViewport.value ? mobileDuration : desktopDuration;
+};
+
+const aosOffset = (desktopOffset = 90, mobileOffset = 44) =>
+  isMobileViewport.value ? mobileOffset : desktopOffset;
+
+const refreshAos = () => {
+  if (typeof window === "undefined") return;
+
+  nextTick(() => {
+    const aos = window.AOS;
+
+    if (aos && typeof aos.refreshHard === "function") {
+      aos.refreshHard();
+      return;
+    }
+
+    if (aos && typeof aos.refresh === "function") {
+      aos.refresh();
+    }
+  });
+};
+
+const updateMotionPreferences = () => {
+  if (typeof window === "undefined") return;
+
+  mobileViewportMediaQuery =
+    mobileViewportMediaQuery || window.matchMedia("(max-width: 767px)");
+  reducedMotionMediaQuery =
+    reducedMotionMediaQuery || window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  isMobileViewport.value = mobileViewportMediaQuery.matches;
+  prefersReducedMotion.value = reducedMotionMediaQuery.matches;
+};
+
 const updateHeroVisualVisibility = () => {
   if (typeof window === "undefined") return;
 
@@ -652,15 +711,40 @@ const handleEscape = (event) => {
   }
 };
 
+watch([filteredProkers, featuredPrograms, categoryInfo, heroImages], refreshAos, {
+  flush: "post",
+});
+
+watch(selectedCategory, refreshAos, { flush: "post" });
+watch([isMobileViewport, prefersReducedMotion], refreshAos, { flush: "post" });
+
 onMounted(() => {
   window.addEventListener("keydown", handleEscape);
+  updateMotionPreferences();
   updateHeroVisualVisibility();
+  refreshAos();
 
   if (heroVisualMediaQuery) {
     if (typeof heroVisualMediaQuery.addEventListener === "function") {
       heroVisualMediaQuery.addEventListener("change", updateHeroVisualVisibility);
     } else if (typeof heroVisualMediaQuery.addListener === "function") {
       heroVisualMediaQuery.addListener(updateHeroVisualVisibility);
+    }
+  }
+
+  if (mobileViewportMediaQuery) {
+    if (typeof mobileViewportMediaQuery.addEventListener === "function") {
+      mobileViewportMediaQuery.addEventListener("change", updateMotionPreferences);
+    } else if (typeof mobileViewportMediaQuery.addListener === "function") {
+      mobileViewportMediaQuery.addListener(updateMotionPreferences);
+    }
+  }
+
+  if (reducedMotionMediaQuery) {
+    if (typeof reducedMotionMediaQuery.addEventListener === "function") {
+      reducedMotionMediaQuery.addEventListener("change", updateMotionPreferences);
+    } else if (typeof reducedMotionMediaQuery.addListener === "function") {
+      reducedMotionMediaQuery.addListener(updateMotionPreferences);
     }
   }
 });
@@ -673,6 +757,22 @@ onUnmounted(() => {
       heroVisualMediaQuery.removeEventListener("change", updateHeroVisualVisibility);
     } else if (typeof heroVisualMediaQuery.removeListener === "function") {
       heroVisualMediaQuery.removeListener(updateHeroVisualVisibility);
+    }
+  }
+
+  if (mobileViewportMediaQuery) {
+    if (typeof mobileViewportMediaQuery.removeEventListener === "function") {
+      mobileViewportMediaQuery.removeEventListener("change", updateMotionPreferences);
+    } else if (typeof mobileViewportMediaQuery.removeListener === "function") {
+      mobileViewportMediaQuery.removeListener(updateMotionPreferences);
+    }
+  }
+
+  if (reducedMotionMediaQuery) {
+    if (typeof reducedMotionMediaQuery.removeEventListener === "function") {
+      reducedMotionMediaQuery.removeEventListener("change", updateMotionPreferences);
+    } else if (typeof reducedMotionMediaQuery.removeListener === "function") {
+      reducedMotionMediaQuery.removeListener(updateMotionPreferences);
     }
   }
 
@@ -740,6 +840,9 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 xl:gap-14">
           <div
             class="rounded-[1.75rem] border border-white/80 bg-white/68 p-4 shadow-[0_18px_52px_rgba(2,6,23,0.08)] backdrop-blur-xl sm:p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-0"
+            :data-aos="aosAnimation('fade-right', 'fade-up')"
+            :data-aos-duration="aosDuration(820, 640)"
+            :data-aos-offset="aosOffset(80, 34)"
           >
             <div
               class="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/88 px-3 py-2 text-[0.64rem] font-extrabold uppercase tracking-[0.07em] text-red-700 shadow-[0_12px_35px_rgba(2,6,23,0.06)] backdrop-blur-xl min-[390px]:text-[0.68rem] sm:mb-5 sm:text-[0.75rem]"
@@ -817,9 +920,13 @@ onUnmounted(() => {
 
             <div class="mt-5 grid grid-cols-3 gap-2 sm:mt-8 sm:max-w-2xl sm:gap-3">
               <div
-                v-for="item in stats"
+                v-for="(item, index) in stats"
                 :key="item.label"
                 class="rounded-2xl border border-slate-900/5 bg-white/82 p-2.5 shadow-[0_10px_28px_rgba(2,6,23,0.05)] backdrop-blur-xl sm:p-4"
+                data-aos="fade-up"
+                :data-aos-delay="aosDelay(index, 55, 150)"
+                :data-aos-duration="aosDuration(640, 520)"
+                :data-aos-offset="aosOffset(46, 24)"
               >
                 <p
                   class="text-[0.58rem] font-extrabold uppercase tracking-[0.06em] text-red-700 min-[390px]:text-[0.62rem] sm:text-[0.72rem]"
@@ -838,9 +945,10 @@ onUnmounted(() => {
           <div
             v-if="showHeroVisual"
             class="relative mx-auto hidden w-full max-w-[31rem] sm:max-w-[37rem] md:block lg:mx-auto"
-            data-aos="fade-up"
-            data-aos-delay="120"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-left', 'fade-up')"
+            :data-aos-delay="aosDelay(1, 95, 140)"
+            :data-aos-duration="aosDuration(860, 620)"
+            :data-aos-offset="aosOffset(80, 34)"
           >
             <div
               class="absolute -left-4 top-10 hidden h-24 w-24 rounded-full border border-red-500/20 lg:block"
@@ -969,6 +1077,10 @@ onUnmounted(() => {
           <div
             v-else
             class="relative mx-auto w-full max-w-[34rem] rounded-[1.65rem] border border-slate-900/5 bg-white/86 p-4 shadow-[0_18px_48px_rgba(2,6,23,0.08)] backdrop-blur-xl md:hidden"
+            data-aos="fade-up"
+            :data-aos-delay="aosDelay(1, 70, 90)"
+            :data-aos-duration="aosDuration(700, 560)"
+            :data-aos-offset="aosOffset(70, 28)"
           >
             <div
               class="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-red-500/10 blur-3xl"
@@ -1017,6 +1129,9 @@ onUnmounted(() => {
     <!-- Ticker -->
     <div
       class="overflow-hidden border-y border-white/5 bg-[linear-gradient(135deg,#0f172a,#172033_60%,#111827)] py-3 sm:py-4"
+      data-aos="fade-in"
+      :data-aos-duration="aosDuration(620, 460)"
+      :data-aos-offset="aosOffset(32, 16)"
     >
       <div class="ticker-wrap w-full overflow-hidden">
         <div class="ticker-inner flex w-max">
@@ -1040,7 +1155,8 @@ onUnmounted(() => {
         <div
           class="mb-10 max-w-3xl sm:mb-14 lg:mb-16"
           data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos-duration="aosDuration(760, 580)"
+          :data-aos-offset="aosOffset(80, 34)"
         >
           <div
             class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -1076,8 +1192,9 @@ onUnmounted(() => {
             :key="item.key"
             class="group rounded-[1.25rem] border border-slate-900/5 bg-white p-4 shadow-[0_12px_32px_rgba(2,6,23,0.05)] transition-all duration-300 hover:-translate-y-1 hover:border-red-500/20 hover:shadow-[0_26px_60px_rgba(2,6,23,0.12)] sm:rounded-[1.6rem] sm:p-5"
             data-aos="fade-up"
-            :data-aos-delay="index * 80"
-            data-aos-duration="800"
+            :data-aos-delay="aosDelay(index, 65, 220)"
+            :data-aos-duration="aosDuration(720, 560)"
+            :data-aos-offset="aosOffset(76, 32)"
           >
             <div
               class="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-r from-red-500 to-red-700 text-white shadow-md shadow-red-500/20 transition-transform duration-300 group-hover:scale-105"
@@ -1111,7 +1228,11 @@ onUnmounted(() => {
         <div
           class="mb-10 flex flex-col justify-between gap-5 sm:mb-14 lg:mb-16 md:flex-row md:items-end"
         >
-          <div data-aos="fade-up" data-aos-duration="800">
+          <div
+            data-aos="fade-up"
+            :data-aos-duration="aosDuration(760, 580)"
+            :data-aos-offset="aosOffset(80, 34)"
+          >
             <div
               class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
             >
@@ -1140,6 +1261,10 @@ onUnmounted(() => {
 
           <div
             class="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+            :data-aos="aosAnimation('fade-left', 'fade-up')"
+            :data-aos-delay="aosDelay(1, 90, 120)"
+            :data-aos-duration="aosDuration(720, 540)"
+            :data-aos-offset="aosOffset(72, 30)"
           >
             <button
               v-for="filter in categoryInfo"
@@ -1167,8 +1292,9 @@ onUnmounted(() => {
             :key="proker.id || proker.title || index"
             class="group cursor-pointer overflow-hidden rounded-[1.45rem] border border-slate-900/5 bg-white shadow-[0_14px_40px_rgba(2,6,23,0.06)] outline-none transition-all duration-300 hover:-translate-y-2 hover:border-red-500/20 hover:shadow-[0_30px_75px_rgba(2,6,23,0.14)] focus-visible:ring-4 focus-visible:ring-red-500/20 sm:rounded-[1.6rem]"
             data-aos="fade-up"
-            :data-aos-delay="index * 90"
-            data-aos-duration="800"
+            :data-aos-delay="aosDelay(index, 70, 240)"
+            :data-aos-duration="aosDuration(760, 560)"
+            :data-aos-offset="aosOffset(86, 34)"
             role="button"
             tabindex="0"
             @click="openDetail(proker)"
@@ -1308,6 +1434,9 @@ onUnmounted(() => {
         <div
           v-else
           class="rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center shadow-[0_14px_36px_rgba(2,6,23,0.04)]"
+          data-aos="fade-up"
+          :data-aos-duration="aosDuration(700, 540)"
+          :data-aos-offset="aosOffset(72, 30)"
         >
           <div
             class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-2xl"
@@ -1333,7 +1462,8 @@ onUnmounted(() => {
         <div
           class="mx-auto mb-10 max-w-3xl text-center sm:mb-14 lg:mb-16"
           data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos-duration="aosDuration(760, 580)"
+          :data-aos-offset="aosOffset(80, 34)"
         >
           <div
             class="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -1369,9 +1499,10 @@ onUnmounted(() => {
             v-for="(proker, index) in featuredPrograms"
             :key="`featured-${proker.id || proker.title || index}`"
             class="group relative cursor-pointer overflow-hidden rounded-[1.55rem] border border-slate-900/5 bg-slate-900 shadow-[0_18px_42px_rgba(2,6,23,0.16)] outline-none transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(2,6,23,0.22)] focus-visible:ring-4 focus-visible:ring-red-500/20 sm:rounded-[1.75rem]"
-            data-aos="fade-up"
-            :data-aos-delay="index * 100"
-            data-aos-duration="800"
+            data-aos="zoom-in-up"
+            :data-aos-delay="aosDelay(index, 80, 220)"
+            :data-aos-duration="aosDuration(780, 560)"
+            :data-aos-offset="aosOffset(86, 34)"
             role="button"
             tabindex="0"
             @click="openDetail(proker)"
@@ -1439,6 +1570,9 @@ onUnmounted(() => {
         <div
           v-else
           class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50 p-8 text-center"
+          data-aos="fade-up"
+          :data-aos-duration="aosDuration(700, 540)"
+          :data-aos-offset="aosOffset(72, 30)"
         >
           <p class="text-sm font-bold text-slate-500">Belum ada program pilihan.</p>
         </div>
@@ -1713,6 +1847,17 @@ onUnmounted(() => {
   .floating-badge {
     animation: none;
   }
+
+  .program-page :deep([data-aos]) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+.program-page :deep([data-aos]) {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
 .program-page :deep(p) {

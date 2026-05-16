@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Head, Link } from "@inertiajs/vue3";
 import UserLayout from "@/user/layouts/UserLayout.vue";
 
@@ -723,6 +723,103 @@ const infoPoints = computed(() => [
 const tinyImagePlaceholder =
   "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 10%22%3E%3Crect width=%2216%22 height=%2210%22 fill=%22%23f8fafc%22/%3E%3C/svg%3E";
 
+const isClient = typeof window !== "undefined";
+const compactViewport = ref(false);
+const reducedMotionPreferred = ref(false);
+let aosRefreshTimeout = null;
+let viewportUpdateTimeout = null;
+
+const matchMediaQuery = (query) =>
+  isClient && typeof window.matchMedia === "function"
+    ? window.matchMedia(query).matches
+    : false;
+
+const updateMotionPreferences = () => {
+  if (!isClient) return;
+
+  compactViewport.value = matchMediaQuery("(max-width: 639px)");
+  reducedMotionPreferred.value = matchMediaQuery("(prefers-reduced-motion: reduce)");
+};
+
+const aosAnimation = (desktopAnimation = "fade-up", mobileAnimation = "fade-up") => {
+  if (reducedMotionPreferred.value) return "fade-up";
+
+  return compactViewport.value ? mobileAnimation : desktopAnimation;
+};
+
+const aosDuration = (desktopDuration = 760, mobileDuration = 520) =>
+  compactViewport.value ? mobileDuration : desktopDuration;
+
+const aosOffset = (desktopOffset = 88, mobileOffset = 42) =>
+  compactViewport.value ? mobileOffset : desktopOffset;
+
+const aosDelay = (index = 0, step = 70, base = 0, maxDelay = 260) => {
+  const safeIndex = Number(index) || 0;
+  const safeStep = compactViewport.value ? Math.min(step, 45) : step;
+  const safeBase = compactViewport.value ? Math.min(base, 45) : base;
+  const safeMaxDelay = compactViewport.value ? Math.min(maxDelay, 150) : maxDelay;
+
+  return Math.min(safeBase + safeIndex * safeStep, safeMaxDelay);
+};
+
+const refreshAos = () => {
+  if (!isClient || reducedMotionPreferred.value) return;
+
+  window.clearTimeout(aosRefreshTimeout);
+  aosRefreshTimeout = window.setTimeout(() => {
+    const aos = window.AOS;
+
+    if (aos?.refreshHard) {
+      aos.refreshHard();
+      return;
+    }
+
+    if (aos?.refresh) {
+      aos.refresh();
+    }
+  }, 120);
+};
+
+const handleViewportChange = () => {
+  if (!isClient) return;
+
+  window.clearTimeout(viewportUpdateTimeout);
+  viewportUpdateTimeout = window.setTimeout(() => {
+    updateMotionPreferences();
+    refreshAos();
+  }, 120);
+};
+
+onMounted(() => {
+  updateMotionPreferences();
+
+  nextTick(() => {
+    refreshAos();
+  });
+
+  if (isClient) {
+    window.addEventListener("resize", handleViewportChange, { passive: true });
+  }
+});
+
+watch(
+  [heroImages, missions, identityCards, functionPoints, periods, cabinetLogoImage],
+  () => {
+    nextTick(() => {
+      refreshAos();
+    });
+  },
+  { deep: true }
+);
+
+onUnmounted(() => {
+  if (!isClient) return;
+
+  window.clearTimeout(aosRefreshTimeout);
+  window.clearTimeout(viewportUpdateTimeout);
+  window.removeEventListener("resize", handleViewportChange);
+});
+
 const scrollToSection = (id) => {
   const section = document.getElementById(id);
 
@@ -777,7 +874,12 @@ const scrollToSection = (id) => {
 
       <div class="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 xl:gap-14">
-          <div>
+          <div
+            :data-aos="aosAnimation('fade-right')"
+            :data-aos-duration="aosDuration(780, 540)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(90, 38)"
+          >
             <div
               class="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/80 px-3 py-2 text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-red-700 shadow-[0_12px_35px_rgba(2,6,23,0.06)] backdrop-blur-xl sm:text-[0.75rem]"
             >
@@ -928,6 +1030,11 @@ const scrollToSection = (id) => {
           </div>
 
           <div
+            :data-aos="aosAnimation('fade-left')"
+            :data-aos-delay="aosDelay(1, 90, 50, 160)"
+            :data-aos-duration="aosDuration(820, 560)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(95, 38)"
             class="relative mx-auto w-full max-w-[35rem] sm:max-w-[37rem] lg:mx-auto"
           >
             <div
@@ -1158,7 +1265,12 @@ const scrollToSection = (id) => {
         <div
           class="grid grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16"
         >
-          <div data-aos="fade-up" data-aos-duration="800">
+          <div
+            :data-aos="aosAnimation('fade-right')"
+            :data-aos-duration="aosDuration(760, 520)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(84, 36)"
+          >
             <div
               class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
             >
@@ -1186,7 +1298,13 @@ const scrollToSection = (id) => {
             </div>
           </div>
 
-          <div data-aos="fade-up" data-aos-delay="120" data-aos-duration="800">
+          <div
+            :data-aos="aosAnimation('fade-left')"
+            :data-aos-delay="aosDelay(1, 90, 50, 160)"
+            :data-aos-duration="aosDuration(760, 520)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(84, 36)"
+          >
             <div
               class="relative overflow-hidden rounded-[1.75rem] bg-[linear-gradient(160deg,#0b1220,#111827_58%,#1e1b4b)] p-5 text-white shadow-[0_22px_54px_rgba(2,6,23,0.18)] sm:p-6 lg:p-7"
             >
@@ -1267,8 +1385,14 @@ const scrollToSection = (id) => {
         </div>
 
         <!-- Identity Cards -->
-        <div class="mt-12" data-aos="fade-up" data-aos-duration="800">
-          <div class="mb-6 max-w-3xl">
+        <div class="mt-12">
+          <div
+            class="mb-6 max-w-3xl"
+            :data-aos="aosAnimation('fade-up')"
+            :data-aos-duration="aosDuration(720, 500)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(78, 34)"
+          >
             <div
               class="mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
             >
@@ -1298,9 +1422,11 @@ const scrollToSection = (id) => {
             <article
               v-for="(item, index) in identityCards"
               :key="item.id || item.title"
-              :data-aos-delay="index * 80"
-              data-aos="fade-up"
-              data-aos-duration="800"
+              :data-aos-delay="aosDelay(index, 65, 35, 230)"
+              :data-aos="aosAnimation('zoom-in-up', 'fade-up')"
+              :data-aos-duration="aosDuration(720, 500)"
+            data-aos-easing="ease-out-cubic"
+              :data-aos-offset="aosOffset(74, 34)"
               class="group rounded-[1.45rem] border border-slate-900/5 bg-white p-5 shadow-[0_14px_40px_rgba(2,6,23,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-red-500/20 hover:shadow-[0_26px_60px_rgba(2,6,23,0.12)] sm:rounded-[1.6rem]"
             >
               <div
@@ -1350,8 +1476,10 @@ const scrollToSection = (id) => {
       <div class="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mb-10 max-w-3xl lg:mb-14"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(740, 500)"
+            data-aos-easing="ease-out-cubic"
+          :data-aos-offset="aosOffset(82, 36)"
         >
           <div
             class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -1375,7 +1503,12 @@ const scrollToSection = (id) => {
         <div
           class="cabinet-logo-layout grid grid-cols-1 gap-6 lg:grid-cols-[0.88fr_1.12fr] lg:gap-8 xl:gap-10"
         >
-          <div data-aos="fade-right" data-aos-duration="850">
+          <div
+            :data-aos="aosAnimation('fade-right')"
+            :data-aos-duration="aosDuration(800, 540)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(88, 38)"
+          >
             <div
               class="cabinet-logo-card group relative overflow-hidden rounded-[2rem] border border-slate-900/5 bg-white p-5 shadow-[0_24px_70px_rgba(2,6,23,0.10)] sm:p-7 lg:p-8"
             >
@@ -1426,7 +1559,13 @@ const scrollToSection = (id) => {
             </div>
           </div>
 
-          <div data-aos="fade-left" data-aos-duration="850">
+          <div
+            :data-aos="aosAnimation('fade-left')"
+            :data-aos-delay="aosDelay(1, 80, 45, 150)"
+            :data-aos-duration="aosDuration(800, 540)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(88, 38)"
+          >
             <div
               class="cabinet-meaning-card relative h-full min-w-0 overflow-hidden rounded-[2rem] bg-[linear-gradient(160deg,#0b1220,#111827_58%,#450a0a)] p-5 text-white shadow-[0_24px_70px_rgba(2,6,23,0.18)] sm:p-7 lg:p-8"
             >
@@ -1490,8 +1629,10 @@ const scrollToSection = (id) => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mb-10 max-w-3xl sm:mb-14 lg:mb-16"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(740, 500)"
+            data-aos-easing="ease-out-cubic"
+          :data-aos-offset="aosOffset(82, 36)"
         >
           <div
             class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -1520,8 +1661,10 @@ const scrollToSection = (id) => {
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr] xl:gap-10">
           <div
-            data-aos="fade-right"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-right')"
+            :data-aos-duration="aosDuration(760, 520)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(84, 36)"
             class="relative overflow-hidden rounded-[1.75rem] bg-[linear-gradient(160deg,#0b1220,#111827_58%,#1e1b4b)] p-6 text-white shadow-[0_22px_54px_rgba(2,6,23,0.18)] sm:p-8"
           >
             <div
@@ -1535,8 +1678,11 @@ const scrollToSection = (id) => {
           </div>
 
           <div
-            data-aos="fade-left"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-left')"
+            :data-aos-delay="aosDelay(1, 80, 45, 150)"
+            :data-aos-duration="aosDuration(760, 520)"
+            data-aos-easing="ease-out-cubic"
+            :data-aos-offset="aosOffset(84, 36)"
             class="rounded-[1.75rem] border border-slate-900/5 bg-white p-6 shadow-[0_14px_40px_rgba(2,6,23,0.06)] sm:p-8"
           >
             <h3 class="text-2xl font-black tracking-[-0.03em] text-slate-950">
@@ -1547,9 +1693,11 @@ const scrollToSection = (id) => {
               <div
                 v-for="(mission, index) in missions"
                 :key="`mission-${index}-${mission}`"
-                :data-aos-delay="50 + index * 40"
-                data-aos="fade-up"
-                data-aos-duration="800"
+                :data-aos-delay="aosDelay(index, 42, 45, 190)"
+                :data-aos="aosAnimation('fade-up')"
+                :data-aos-duration="aosDuration(660, 460)"
+            data-aos-easing="ease-out-cubic"
+                :data-aos-offset="aosOffset(58, 28)"
                 class="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
               >
                 <div
@@ -1574,8 +1722,10 @@ const scrollToSection = (id) => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mb-10 max-w-3xl sm:mb-14 lg:mb-16"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(740, 500)"
+            data-aos-easing="ease-out-cubic"
+          :data-aos-offset="aosOffset(82, 36)"
         >
           <div
             class="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -1611,9 +1761,11 @@ const scrollToSection = (id) => {
             <article
               v-for="(item, index) in periods"
               :key="item.id || item.periode"
-              :data-aos-delay="index * 80"
-              data-aos="fade-up"
-              data-aos-duration="800"
+              :data-aos-delay="aosDelay(index, 70, 35, 260)"
+              :data-aos="aosAnimation('fade-up')"
+              :data-aos-duration="aosDuration(720, 500)"
+            data-aos-easing="ease-out-cubic"
+              :data-aos-offset="aosOffset(78, 34)"
               class="relative overflow-hidden rounded-[1.55rem] border border-slate-900/5 bg-white shadow-[0_14px_40px_rgba(2,6,23,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_60px_rgba(2,6,23,0.12)] md:ml-10"
             >
               <div
@@ -1819,17 +1971,31 @@ const scrollToSection = (id) => {
   outline-offset: 3px;
 }
 
+.profil-mobile-page [data-aos] {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.profil-mobile-page [data-aos].aos-animate {
+  will-change: auto;
+}
+
 @media (max-width: 639px) {
   .profil-mobile-page [data-aos] {
-    transition-duration: 420ms !important;
+    transition-duration: 520ms !important;
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .ticker-inner,
   .floating-badge,
   .profil-mobile-page [data-aos] {
     animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
     transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
   }
 }
 </style>

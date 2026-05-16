@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Head } from "@inertiajs/vue3";
 import UserLayout from "@/user/layouts/UserLayout.vue";
 
@@ -33,6 +33,11 @@ const selectedCategory = ref("semua");
 const searchQuery = ref("");
 const selectedDocumentation = ref(null);
 const selectedImageIndex = ref(0);
+const isMobileViewport = ref(false);
+const prefersReducedMotion = ref(false);
+
+let mobileViewportMediaQuery = null;
+let reducedMotionMediaQuery = null;
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=960&h=640&fit=crop&auto=format&q=72";
@@ -375,10 +380,90 @@ const hasActiveFilter = computed(
     Boolean(searchQuery.value.trim())
 );
 
+const clampNumber = (value, min = 0, max = 320) => {
+  const number = Number(value || 0);
+
+  if (!Number.isFinite(number)) {
+    return min;
+  }
+
+  return Math.min(Math.max(number, min), max);
+};
+
+const aosAnimation = (desktopAnimation = "fade-up", mobileAnimation = "fade-up") => {
+  if (prefersReducedMotion.value) {
+    return "fade-up";
+  }
+
+  return isMobileViewport.value ? mobileAnimation : desktopAnimation;
+};
+
+const aosDelay = (index = 0, step = 70, maxDelay = 260) => {
+  if (prefersReducedMotion.value) {
+    return 0;
+  }
+
+  const safeStep = isMobileViewport.value ? Math.min(step, 42) : step;
+  const safeMaxDelay = isMobileViewport.value ? Math.min(maxDelay, 126) : maxDelay;
+
+  return clampNumber(index * safeStep, 0, safeMaxDelay);
+};
+
+const aosDuration = (desktopDuration = 780, mobileDuration = 560) => {
+  if (prefersReducedMotion.value) {
+    return 1;
+  }
+
+  return isMobileViewport.value ? mobileDuration : desktopDuration;
+};
+
+const aosOffset = (desktopOffset = 86, mobileOffset = 34) =>
+  isMobileViewport.value ? mobileOffset : desktopOffset;
+
+const refreshAos = (hardRefresh = false) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    nextTick(() => {
+      const aos = window.AOS;
+
+      if (!aos) {
+        return;
+      }
+
+      if (hardRefresh && typeof aos.refreshHard === "function") {
+        aos.refreshHard();
+        return;
+      }
+
+      if (typeof aos.refresh === "function") {
+        aos.refresh();
+      }
+    });
+  });
+};
+
+const updateMotionPreferences = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  mobileViewportMediaQuery =
+    mobileViewportMediaQuery || window.matchMedia("(max-width: 767px)");
+  reducedMotionMediaQuery =
+    reducedMotionMediaQuery || window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  isMobileViewport.value = mobileViewportMediaQuery.matches;
+  prefersReducedMotion.value = reducedMotionMediaQuery.matches;
+};
+
 const resetFilters = () => {
   selectedYear.value = "Semua";
   selectedCategory.value = "semua";
   searchQuery.value = "";
+  refreshAos(true);
 };
 
 const openDetail = (item) => {
@@ -388,6 +473,8 @@ const openDetail = (item) => {
   if (typeof document !== "undefined") {
     document.body.style.overflow = "hidden";
   }
+
+  refreshAos();
 };
 
 const closeDetail = () => {
@@ -397,6 +484,8 @@ const closeDetail = () => {
   if (typeof document !== "undefined") {
     document.body.style.overflow = "";
   }
+
+  refreshAos();
 };
 
 const handleEscape = (event) => {
@@ -405,12 +494,56 @@ const handleEscape = (event) => {
   }
 };
 
+watch(
+  [filteredDocumentations, featuredDocumentation, selectedYear, selectedCategory, searchQuery],
+  () => refreshAos(true),
+  { flush: "post" }
+);
+
+watch([isMobileViewport, prefersReducedMotion], () => refreshAos(true), {
+  flush: "post",
+});
+
 onMounted(() => {
   window.addEventListener("keydown", handleEscape);
+  updateMotionPreferences();
+  refreshAos(true);
+
+  if (mobileViewportMediaQuery) {
+    if (typeof mobileViewportMediaQuery.addEventListener === "function") {
+      mobileViewportMediaQuery.addEventListener("change", updateMotionPreferences);
+    } else if (typeof mobileViewportMediaQuery.addListener === "function") {
+      mobileViewportMediaQuery.addListener(updateMotionPreferences);
+    }
+  }
+
+  if (reducedMotionMediaQuery) {
+    if (typeof reducedMotionMediaQuery.addEventListener === "function") {
+      reducedMotionMediaQuery.addEventListener("change", updateMotionPreferences);
+    } else if (typeof reducedMotionMediaQuery.addListener === "function") {
+      reducedMotionMediaQuery.addListener(updateMotionPreferences);
+    }
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener("keydown", handleEscape);
+
+  if (mobileViewportMediaQuery) {
+    if (typeof mobileViewportMediaQuery.removeEventListener === "function") {
+      mobileViewportMediaQuery.removeEventListener("change", updateMotionPreferences);
+    } else if (typeof mobileViewportMediaQuery.removeListener === "function") {
+      mobileViewportMediaQuery.removeListener(updateMotionPreferences);
+    }
+  }
+
+  if (reducedMotionMediaQuery) {
+    if (typeof reducedMotionMediaQuery.removeEventListener === "function") {
+      reducedMotionMediaQuery.removeEventListener("change", updateMotionPreferences);
+    } else if (typeof reducedMotionMediaQuery.removeListener === "function") {
+      reducedMotionMediaQuery.removeListener(updateMotionPreferences);
+    }
+  }
 
   if (typeof document !== "undefined") {
     document.body.style.overflow = "";
@@ -466,6 +599,9 @@ onUnmounted(() => {
         >
           <div
             class="rounded-[1.75rem] border border-white/75 bg-white/74 p-4 shadow-[0_18px_52px_rgba(2,6,23,0.08)] backdrop-blur-xl sm:p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-0"
+            :data-aos="aosAnimation('fade-right', 'fade-up')"
+            :data-aos-duration="aosDuration(840, 580)"
+            :data-aos-offset="aosOffset(84, 28)"
           >
             <div
               class="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/90 px-3 py-2 text-[0.64rem] font-black uppercase tracking-[0.08em] text-red-700 shadow-[0_12px_32px_rgba(2,6,23,0.06)] min-[390px]:text-[0.68rem] sm:mb-5 sm:text-[0.75rem]"
@@ -498,9 +634,13 @@ onUnmounted(() => {
 
             <div class="mt-6 grid grid-cols-3 gap-2 sm:mt-8 sm:max-w-xl sm:gap-3">
               <div
-                v-for="item in documentationStats"
+                v-for="(item, index) in documentationStats"
                 :key="item.label"
                 class="rounded-2xl border border-slate-900/5 bg-white/90 p-3 shadow-[0_12px_30px_rgba(2,6,23,0.06)] backdrop-blur-xl sm:p-4"
+                data-aos="fade-up"
+                :data-aos-delay="aosDelay(index, 55, 140)"
+                :data-aos-duration="aosDuration(620, 460)"
+                :data-aos-offset="aosOffset(44, 18)"
               >
                 <div
                   class="text-base font-black tracking-[-0.04em] text-slate-950 min-[390px]:text-lg sm:text-2xl"
@@ -521,9 +661,10 @@ onUnmounted(() => {
 
           <div
             class="relative mx-auto w-full max-w-[35rem]"
-            data-aos="fade-up"
-            data-aos-delay="100"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-left', 'fade-up')"
+            :data-aos-delay="aosDelay(1, 90, 130)"
+            :data-aos-duration="aosDuration(860, 600)"
+            :data-aos-offset="aosOffset(84, 30)"
           >
             <div
               class="relative overflow-hidden rounded-[1.7rem] border border-white/80 bg-white/90 p-3 shadow-[0_24px_70px_rgba(2,6,23,0.12)] backdrop-blur-xl sm:rounded-[2rem] sm:p-4"
@@ -543,6 +684,10 @@ onUnmounted(() => {
                   type="button"
                   class="group relative overflow-hidden rounded-[1.35rem] bg-white text-left shadow-[0_18px_46px_rgba(15,23,42,0.12)] outline-none ring-1 ring-white/60 transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_60px_rgba(15,23,42,0.18)] focus-visible:ring-4 focus-visible:ring-red-500/20 sm:rounded-[1.65rem]"
                   :class="featuredCardClass(item)"
+                  data-aos="zoom-in-up"
+                  :data-aos-delay="aosDelay(index, 65, 180)"
+                  :data-aos-duration="aosDuration(680, 500)"
+                  :data-aos-offset="aosOffset(48, 20)"
                   :aria-label="`Lihat detail ${item.title || 'Dokumentasi HMPS RPL'}`"
                   @click="openDetail(item)"
                 >
@@ -651,7 +796,8 @@ onUnmounted(() => {
         <div
           class="rounded-[1.65rem] border border-slate-900/[0.06] bg-white p-4 shadow-[0_14px_40px_rgba(2,6,23,0.06)] sm:rounded-[1.9rem] sm:p-6"
           data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos-duration="aosDuration(760, 540)"
+          :data-aos-offset="aosOffset(76, 28)"
         >
           <div class="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
@@ -744,6 +890,9 @@ onUnmounted(() => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mb-7 flex flex-col justify-between gap-3 sm:mb-10 sm:flex-row sm:items-end"
+          data-aos="fade-up"
+          :data-aos-duration="aosDuration(720, 520)"
+          :data-aos-offset="aosOffset(74, 26)"
         >
           <div>
             <p class="text-[0.7rem] font-black uppercase tracking-[0.12em] text-red-700">
@@ -769,9 +918,10 @@ onUnmounted(() => {
             v-for="(item, index) in filteredDocumentations"
             :key="item.id || `${item.title}-${index}`"
             class="group overflow-hidden rounded-[1.5rem] border border-slate-900/[0.06] bg-white shadow-[0_14px_40px_rgba(2,6,23,0.06)] transition-all duration-300 hover:-translate-y-2 hover:border-red-500/20 hover:shadow-[0_26px_64px_rgba(2,6,23,0.12)] sm:rounded-[1.75rem]"
-            data-aos="fade-up"
-            :data-aos-delay="Math.min(index * 60, 240)"
-            data-aos-duration="800"
+            data-aos="zoom-in-up"
+            :data-aos-delay="aosDelay(index, 70, 240)"
+            :data-aos-duration="aosDuration(760, 540)"
+            :data-aos-offset="aosOffset(82, 30)"
           >
             <button
               type="button"
@@ -881,6 +1031,9 @@ onUnmounted(() => {
         <div
           v-else
           class="rounded-[1.8rem] border border-dashed border-slate-300 bg-white p-8 text-center shadow-[0_10px_30px_rgba(2,6,23,0.04)]"
+          data-aos="fade-up"
+          :data-aos-duration="aosDuration(700, 500)"
+          :data-aos-offset="aosOffset(70, 24)"
         >
           <div
             class="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.2rem] bg-slate-100 text-2xl"
@@ -915,7 +1068,8 @@ onUnmounted(() => {
         <div
           class="overflow-hidden rounded-[2rem] border border-slate-900/10 bg-[linear-gradient(135deg,#0f172a,#111827_55%,#1e293b)] px-6 py-8 text-white shadow-[0_20px_60px_rgba(2,6,23,0.16)] sm:px-8 sm:py-10 lg:px-12 lg:py-12"
           data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos-duration="aosDuration(780, 540)"
+          :data-aos-offset="aosOffset(78, 28)"
         >
           <div class="max-w-3xl">
             <div
@@ -1271,6 +1425,18 @@ onUnmounted(() => {
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(185, 28, 28, 0.75);
+}
+
+
+.documentation-page :deep([data-aos]) {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+@media (min-width: 768px) {
+  .documentation-page :deep([data-aos]) {
+    will-change: transform, opacity;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 
 const page = usePage();
@@ -307,6 +307,93 @@ const safeLegalLinks = computed(() => {
 const contactAriaLabel = (item) => {
   return [item.title, item.value, item.helper].filter(Boolean).join(" - ");
 };
+
+const isBrowser = typeof window !== "undefined";
+
+const prefersReducedMotion = () => {
+  if (!isBrowser || typeof window.matchMedia !== "function") return false;
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
+
+const isSmallScreen = () => {
+  if (!isBrowser || typeof window.matchMedia !== "function") return false;
+
+  return window.matchMedia("(max-width: 767px)").matches;
+};
+
+const aosAnimation = (desktopAnimation, mobileAnimation = "fade-up") => {
+  if (prefersReducedMotion()) return "fade";
+  if (isSmallScreen()) return mobileAnimation;
+
+  return desktopAnimation;
+};
+
+const aosDuration = (desktop = 720, mobile = 560) => {
+  if (prefersReducedMotion()) return 1;
+
+  return isSmallScreen() ? mobile : desktop;
+};
+
+const aosOffset = (desktop = 90, mobile = 45) => {
+  return isSmallScreen() ? mobile : desktop;
+};
+
+const aosDelay = (index = 0, step = 70, max = 280) => {
+  if (prefersReducedMotion()) return 0;
+
+  const safeIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
+  const safeStep = isSmallScreen() ? Math.min(step, 45) : step;
+  const safeMax = isSmallScreen() ? Math.min(max, 180) : max;
+
+  return Math.min(Math.max(safeIndex, 0) * safeStep, safeMax);
+};
+
+let resizeTimer = null;
+
+const refreshAos = () => {
+  if (!isBrowser || !window.AOS) return;
+
+  window.requestAnimationFrame(() => {
+    nextTick(() => {
+      window.AOS?.refreshHard?.();
+      window.AOS?.refresh?.();
+    });
+  });
+};
+
+const refreshAosOnResize = () => {
+  if (!isBrowser) return;
+
+  window.clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(refreshAos, 180);
+};
+
+onMounted(() => {
+  refreshAos();
+
+  if (isBrowser) {
+    window.addEventListener("resize", refreshAosOnResize, { passive: true });
+  }
+});
+
+onBeforeUnmount(() => {
+  if (!isBrowser) return;
+
+  window.clearTimeout(resizeTimer);
+  window.removeEventListener("resize", refreshAosOnResize);
+});
+
+watch(
+  () => [
+    safeNavLinks.value.length,
+    quickContactItems.value.length,
+    safeSocials.value.length,
+    safeLegalLinks.value.length,
+  ],
+  refreshAos
+);
+
 </script>
 
 <template>
@@ -325,6 +412,10 @@ const contactAriaLabel = (item) => {
 
     <div
       class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/60 to-transparent"
+      data-aos="fade"
+      :data-aos-duration="aosDuration(700, 450)"
+      :data-aos-offset="0"
+      data-aos-once="true"
       aria-hidden="true"
     />
 
@@ -335,7 +426,13 @@ const contactAriaLabel = (item) => {
         class="grid grid-cols-1 gap-3.5 lg:grid-cols-[1fr_1.15fr_1fr] lg:gap-5 xl:gap-6"
       >
         <!-- Brand -->
-        <section data-aos="fade-up" data-aos-delay="0">
+        <section
+          :data-aos="aosAnimation('fade-right')"
+          :data-aos-duration="aosDuration(760, 560)"
+          :data-aos-offset="aosOffset(95, 45)"
+          data-aos-easing="ease-out-cubic"
+          data-aos-once="true"
+        >
           <div
             class="h-full rounded-[1.35rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_14px_30px_rgba(2,6,23,0.20)] backdrop-blur-sm sm:rounded-3xl sm:p-6 lg:p-7"
           >
@@ -396,7 +493,15 @@ const contactAriaLabel = (item) => {
         </section>
 
         <!-- Navigation -->
-        <nav data-aos="fade-up" data-aos-delay="80" aria-label="Navigasi footer">
+        <nav
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-delay="aosDelay(1, 90, 180)"
+          :data-aos-duration="aosDuration(760, 560)"
+          :data-aos-offset="aosOffset(95, 45)"
+          data-aos-easing="ease-out-cubic"
+          data-aos-once="true"
+          aria-label="Navigasi footer"
+        >
           <div
             class="h-full rounded-[1.35rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_14px_30px_rgba(2,6,23,0.20)] backdrop-blur-sm sm:rounded-3xl sm:p-6 lg:p-7"
           >
@@ -426,9 +531,15 @@ const contactAriaLabel = (item) => {
               class="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-2.5 lg:grid-cols-1 xl:grid-cols-2"
             >
               <li
-                v-for="link in safeNavLinks"
+                v-for="(link, index) in safeNavLinks"
                 :key="link.id || link.href"
                 class="min-w-0"
+                :data-aos="aosAnimation('fade-up')"
+                :data-aos-delay="aosDelay(index, 45, 220)"
+                :data-aos-duration="aosDuration(560, 420)"
+                :data-aos-offset="aosOffset(60, 28)"
+                data-aos-easing="ease-out-cubic"
+                data-aos-once="true"
               >
                 <component
                   :is="isExternalLink(link.href) || link.target === '_blank' ? 'a' : Link"
@@ -491,7 +602,14 @@ const contactAriaLabel = (item) => {
         </nav>
 
         <!-- Contact -->
-        <section data-aos="fade-up" data-aos-delay="140">
+        <section
+          :data-aos="aosAnimation('fade-left')"
+          :data-aos-delay="aosDelay(2, 90, 180)"
+          :data-aos-duration="aosDuration(760, 560)"
+          :data-aos-offset="aosOffset(95, 45)"
+          data-aos-easing="ease-out-cubic"
+          data-aos-once="true"
+        >
           <div
             class="h-full rounded-[1.35rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_14px_30px_rgba(2,6,23,0.20)] backdrop-blur-sm sm:rounded-3xl sm:p-6 lg:p-7"
           >
@@ -512,6 +630,12 @@ const contactAriaLabel = (item) => {
             <div
               v-if="locationContactItem"
               class="rounded-[1.1rem] border border-white/10 bg-white/[0.03] p-3.5 transition duration-200 hover:border-red-500/20 hover:bg-white/[0.055] sm:rounded-2xl sm:p-4"
+              :data-aos="aosAnimation('fade-up')"
+              :data-aos-delay="aosDelay(1, 60, 160)"
+              :data-aos-duration="aosDuration(600, 440)"
+              :data-aos-offset="aosOffset(65, 30)"
+              data-aos-easing="ease-out-cubic"
+              data-aos-once="true"
             >
               <component
                 :is="locationContactItem.href ? 'a' : 'div'"
@@ -572,6 +696,12 @@ const contactAriaLabel = (item) => {
               target="_blank"
               rel="noopener noreferrer"
               class="group relative mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)] px-4 py-3 text-[0.82rem] font-extrabold text-white shadow-[0_12px_28px_rgba(220,38,38,0.24)] transition duration-200 hover:-translate-y-px active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 sm:mt-4 sm:min-h-[48px] sm:text-sm"
+              :data-aos="aosAnimation('zoom-in-up')"
+              :data-aos-delay="aosDelay(2, 60, 180)"
+              :data-aos-duration="aosDuration(620, 450)"
+              :data-aos-offset="aosOffset(65, 30)"
+              data-aos-easing="ease-out-cubic"
+              data-aos-once="true"
             >
               <span
                 class="absolute inset-0 -translate-x-[140%] bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)] transition-transform duration-500 group-hover:translate-x-[140%]"
@@ -593,6 +723,12 @@ const contactAriaLabel = (item) => {
             <div
               v-if="quickContactItems.length || safeSocials.length"
               class="mt-3 rounded-[1.1rem] border border-white/10 bg-white/[0.025] p-3 sm:mt-4 sm:rounded-2xl sm:p-3.5"
+              :data-aos="aosAnimation('fade-up')"
+              :data-aos-delay="aosDelay(3, 60, 200)"
+              :data-aos-duration="aosDuration(620, 450)"
+              :data-aos-offset="aosOffset(65, 30)"
+              data-aos-easing="ease-out-cubic"
+              data-aos-once="true"
             >
               <div class="mb-2.5 flex items-center justify-between gap-3 sm:mb-3">
                 <p
@@ -612,7 +748,7 @@ const contactAriaLabel = (item) => {
                 class="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2.5"
               >
                 <component
-                  v-for="item in quickContactItems"
+                  v-for="(item, index) in quickContactItems"
                   :key="item.id || `${item.type}-${item.title}`"
                   :is="item.href ? 'a' : 'button'"
                   :href="item.href || undefined"
@@ -622,6 +758,12 @@ const contactAriaLabel = (item) => {
                   :aria-label="contactAriaLabel(item)"
                   :title="contactAriaLabel(item)"
                   class="group flex h-11 min-h-11 w-11 flex-none items-center justify-center rounded-[0.95rem] border border-white/10 bg-white/[0.045] p-0 text-slate-300 transition-all duration-200 hover:-translate-y-[1px] hover:border-red-500/30 hover:bg-red-500/[0.15] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 sm:h-11 sm:w-11"
+                  data-aos="zoom-in"
+                  :data-aos-delay="aosDelay(index, 35, 140)"
+                  :data-aos-duration="aosDuration(480, 360)"
+                  :data-aos-offset="aosOffset(40, 20)"
+                  data-aos-easing="ease-out-cubic"
+                  data-aos-once="true"
                 >
                   <svg
                     class="h-[17px] w-[17px] shrink-0 text-red-300 transition-colors duration-200 group-hover:text-white"
@@ -637,7 +779,7 @@ const contactAriaLabel = (item) => {
                 </component>
 
                 <a
-                  v-for="social in safeSocials"
+                  v-for="(social, index) in safeSocials"
                   :key="social.id || social.name"
                   :href="social.href"
                   :aria-label="social.name"
@@ -645,6 +787,12 @@ const contactAriaLabel = (item) => {
                   :target="social.target || '_blank'"
                   rel="noopener noreferrer"
                   class="group flex h-11 min-h-11 w-11 flex-none items-center justify-center rounded-[0.95rem] border border-white/10 bg-white/[0.045] p-0 text-slate-300 transition-all duration-200 hover:-translate-y-[1px] hover:border-red-500/30 hover:bg-red-500/[0.15] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 sm:h-11 sm:w-11"
+                  data-aos="zoom-in"
+                  :data-aos-delay="aosDelay(index + quickContactItems.length, 35, 180)"
+                  :data-aos-duration="aosDuration(480, 360)"
+                  :data-aos-offset="aosOffset(40, 20)"
+                  data-aos-easing="ease-out-cubic"
+                  data-aos-once="true"
                 >
                   <svg
                     class="h-[17px] w-[17px] shrink-0 text-red-300 transition-colors duration-200 group-hover:text-white"
@@ -663,8 +811,12 @@ const contactAriaLabel = (item) => {
       </div>
 
       <div
-        data-aos="fade-up"
-        data-aos-delay="220"
+        :data-aos="aosAnimation('fade-up')"
+        :data-aos-delay="aosDelay(3, 90, 240)"
+        :data-aos-duration="aosDuration(700, 500)"
+        :data-aos-offset="aosOffset(70, 35)"
+        data-aos-easing="ease-out-cubic"
+        data-aos-once="true"
         class="mt-4 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 text-center sm:mt-6 sm:gap-4 sm:pt-5 lg:flex-row lg:text-left"
       >
         <div class="flex flex-col gap-0.5">
@@ -683,7 +835,7 @@ const contactAriaLabel = (item) => {
           v-if="safeLegalLinks.length"
           class="flex flex-wrap items-center justify-center gap-2 text-sm lg:justify-end"
         >
-          <template v-for="link in safeLegalLinks" :key="link.id || link.label">
+          <template v-for="(link, index) in safeLegalLinks" :key="link.id || link.label">
             <component
               v-if="link.href"
               :is="isExternalLink(link.href) || link.target === '_blank' ? 'a' : Link"
@@ -691,6 +843,12 @@ const contactAriaLabel = (item) => {
               :target="link.target === '_blank' ? '_blank' : undefined"
               :rel="link.target === '_blank' ? 'noopener noreferrer' : undefined"
               class="rounded-full border border-white/10 bg-white/[0.035] px-3.5 py-2 text-[0.68rem] font-bold text-slate-400 transition-colors duration-200 hover:border-red-500/25 hover:bg-white/[0.06] hover:text-white sm:px-4 sm:text-xs"
+              :data-aos="aosAnimation('fade-up')"
+              :data-aos-delay="aosDelay(index, 45, 120)"
+              :data-aos-duration="aosDuration(480, 360)"
+              :data-aos-offset="aosOffset(35, 20)"
+              data-aos-easing="ease-out-cubic"
+              data-aos-once="true"
             >
               {{ link.label }}
             </component>
@@ -699,6 +857,12 @@ const contactAriaLabel = (item) => {
               v-else
               class="cursor-not-allowed rounded-full border border-white/10 bg-white/[0.035] px-3.5 py-2 text-[0.68rem] font-bold text-slate-500 sm:px-4 sm:text-xs"
               :title="`${link.label} belum tersedia`"
+              :data-aos="aosAnimation('fade-up')"
+              :data-aos-delay="aosDelay(index, 45, 120)"
+              :data-aos-duration="aosDuration(480, 360)"
+              :data-aos-offset="aosOffset(35, 20)"
+              data-aos-easing="ease-out-cubic"
+              data-aos-once="true"
             >
               {{ link.label }}
             </span>

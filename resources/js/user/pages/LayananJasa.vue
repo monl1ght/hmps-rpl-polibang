@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Head, useForm, usePage } from "@inertiajs/vue3";
 import UserLayout from "@/user/layouts/UserLayout.vue";
 
@@ -93,6 +93,79 @@ const filteredTestimonials = computed(() => {
 const hasTestimonials = computed(() => testimonials.value.length > 0);
 const hasFilteredTestimonials = computed(() => filteredTestimonials.value.length > 0);
 const isTestimonialsLoading = computed(() => !Array.isArray(props.testimonials));
+
+const isClient = typeof window !== "undefined";
+
+const prefersReducedMotion = () => {
+  if (!isClient || typeof window.matchMedia !== "function") return false;
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
+
+const isMobileViewport = () => {
+  if (!isClient) return false;
+
+  return window.innerWidth < 768;
+};
+
+const aosAnimation = (desktopAnimation = "fade-up", mobileAnimation = "fade-up") => {
+  if (prefersReducedMotion()) return "fade";
+
+  return isMobileViewport() ? mobileAnimation : desktopAnimation;
+};
+
+const aosDuration = (desktopDuration = 780, mobileDuration = 560) => {
+  if (prefersReducedMotion()) return 1;
+
+  return isMobileViewport() ? mobileDuration : desktopDuration;
+};
+
+const aosOffset = (desktopOffset = 90, mobileOffset = 46) => {
+  return isMobileViewport() ? mobileOffset : desktopOffset;
+};
+
+const aosDelay = (index = 0, step = 80, maxDelay = 320) => {
+  if (prefersReducedMotion()) return 0;
+
+  const safeIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
+  const safeStep = isMobileViewport() ? Math.min(step, 45) : step;
+  const safeMaxDelay = isMobileViewport() ? Math.min(maxDelay, 160) : maxDelay;
+
+  return Math.min(safeIndex * safeStep, safeMaxDelay);
+};
+
+const refreshAos = () => {
+  if (!isClient) return;
+
+  nextTick(() => {
+    window.requestAnimationFrame(() => {
+      if (window.AOS?.refreshHard) {
+        window.AOS.refreshHard();
+        return;
+      }
+
+      if (window.AOS?.refresh) {
+        window.AOS.refresh();
+      }
+    });
+  });
+};
+
+const initPageAos = () => {
+  if (!isClient || !window.AOS) return;
+
+  window.AOS.init({
+    once: true,
+    mirror: false,
+    easing: "ease-out-cubic",
+    duration: aosDuration(760, 540),
+    offset: aosOffset(86, 44),
+    anchorPlacement: "top-bottom",
+    disable: () => prefersReducedMotion(),
+  });
+
+  refreshAos();
+};
 
 const scrollTestimonials = (direction = "right") => {
   const container = testimonialScrollRef.value;
@@ -530,8 +603,22 @@ const handleEscape = (event) => {
   }
 };
 
+watch(
+  [
+    () => services.value.length,
+    () => filteredTestimonials.value.length,
+    () => currentConsultationOptions.value.length,
+    () => selectedTestimonialRating.value,
+    () => consultationState.value.open,
+    () => testimonialModalOpen.value,
+  ],
+  () => refreshAos(),
+  { flush: "post" }
+);
+
 onMounted(() => {
   window.addEventListener("keydown", handleEscape);
+  initPageAos();
 });
 
 onUnmounted(() => {
@@ -580,9 +667,10 @@ onUnmounted(() => {
           class="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1fr_0.92fr] xl:gap-14"
         >
           <div
-            class="lcp-hero-content aos-init aos-animate"
-            data-aos="fade-up"
-            data-aos-duration="800"
+            class="lcp-hero-content"
+            :data-aos="aosAnimation('fade-right')"
+            :data-aos-duration="aosDuration(820, 580)"
+            :data-aos-offset="aosOffset(70, 36)"
           >
             <div
               class="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/80 px-3 py-2 text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-red-700 shadow-[0_12px_35px_rgba(2,6,23,0.06)] backdrop-blur-xl sm:text-[0.75rem]"
@@ -645,7 +733,12 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div data-aos="fade-up" data-aos-delay="120" data-aos-duration="800">
+          <div
+            :data-aos="aosAnimation('fade-left')"
+            :data-aos-delay="aosDelay(1, 110, 140)"
+            :data-aos-duration="aosDuration(820, 580)"
+            :data-aos-offset="aosOffset(70, 36)"
+          >
             <div
               class="relative overflow-hidden rounded-[1.9rem] border border-slate-800 bg-[linear-gradient(155deg,#0f172a,#111827_55%,#1e293b)] p-5 text-white shadow-[0_34px_100px_rgba(2,6,23,0.28)] ring-1 ring-slate-700/60 sm:p-6"
             >
@@ -741,8 +834,9 @@ onUnmounted(() => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mx-auto mb-12 max-w-3xl text-center sm:mb-14"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(760, 540)"
+          :data-aos-offset="aosOffset(82, 44)"
         >
           <div
             class="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-4 py-2 text-[0.72rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -775,9 +869,10 @@ onUnmounted(() => {
             v-for="(service, index) in services"
             :key="service.id || service.slug || service.title"
             class="group relative flex h-full flex-col overflow-hidden rounded-[1.65rem] border border-slate-900/5 bg-white p-6 shadow-[0_14px_40px_rgba(2,6,23,0.06)] transition-all duration-300 hover:-translate-y-2 hover:border-red-500/20 hover:shadow-[0_30px_75px_rgba(2,6,23,0.14)] sm:p-7"
-            data-aos="fade-up"
-            :data-aos-delay="index * 100"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('zoom-in-up')"
+            :data-aos-delay="aosDelay(index, 90, 270)"
+            :data-aos-duration="aosDuration(760, 540)"
+            :data-aos-offset="aosOffset(86, 42)"
           >
             <div
               class="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(239,68,68,0.06),transparent)] opacity-0 transition duration-300 group-hover:opacity-100"
@@ -904,8 +999,9 @@ onUnmounted(() => {
         <div class="mx-auto mb-10 max-w-4xl text-center sm:mb-12 lg:mb-14">
           <div
             class="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-white/[0.85] px-4 py-2 text-[0.68rem] font-black uppercase tracking-[0.12em] text-red-700 shadow-[0_12px_32px_rgba(239,68,68,0.10)] backdrop-blur-xl sm:text-[0.72rem]"
-            data-aos="fade-down"
-            data-aos-duration="700"
+            :data-aos="aosAnimation('fade-down')"
+            :data-aos-duration="aosDuration(700, 520)"
+            :data-aos-offset="aosOffset(80, 42)"
           >
             <span class="relative flex h-2.5 w-2.5">
               <span
@@ -918,9 +1014,10 @@ onUnmounted(() => {
 
           <h2
             class="text-[2rem] font-black leading-[1.06] tracking-[-0.055em] text-slate-950 sm:text-[2.65rem] md:text-[3.25rem] lg:text-[3.65rem]"
-            data-aos="fade-up"
-            data-aos-delay="70"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up')"
+            :data-aos-delay="aosDelay(1, 70, 90)"
+            :data-aos-duration="aosDuration(780, 540)"
+            :data-aos-offset="aosOffset(80, 42)"
           >
             Kepercayaan
             <span
@@ -935,9 +1032,10 @@ onUnmounted(() => {
 
           <p
             class="mx-auto mt-5 max-w-2xl text-center text-[0.95rem] leading-[1.85] text-slate-600 sm:text-[1.02rem]"
-            data-aos="fade-up"
-            data-aos-delay="140"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up')"
+            :data-aos-delay="aosDelay(2, 70, 140)"
+            :data-aos-duration="aosDuration(780, 540)"
+            :data-aos-offset="aosOffset(80, 42)"
           >
             Testimoni yang tampil di halaman ini adalah testimoni layanan jasa yang sudah
             disetujui admin. Anda dapat memfilter berdasarkan rating, menggeser daftar
@@ -947,9 +1045,10 @@ onUnmounted(() => {
 
         <div
           class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/[0.92] p-4 shadow-[0_28px_80px_rgba(15,23,42,0.09)] backdrop-blur-xl sm:p-5 lg:p-6"
-          data-aos="fade-up"
-          data-aos-delay="80"
-          data-aos-duration="850"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-delay="aosDelay(1, 80, 120)"
+          :data-aos-duration="aosDuration(820, 560)"
+          :data-aos-offset="aosOffset(84, 42)"
         >
           <div
             class="relative overflow-hidden rounded-[1.7rem] border border-white/70 bg-[radial-gradient(circle_at_8%_10%,rgba(239,68,68,0.09),transparent_24%),radial-gradient(circle_at_92%_8%,rgba(16,185,129,0.09),transparent_24%),linear-gradient(135deg,#ffffff_0%,#fff8f8_44%,#f8fafc_100%)] p-4 sm:p-5 lg:p-6"
@@ -968,9 +1067,10 @@ onUnmounted(() => {
               <div
                 v-if="hasTestimonials"
                 class="rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] sm:p-5"
-                data-aos="fade-up"
-                data-aos-delay="120"
-                data-aos-duration="800"
+                :data-aos="aosAnimation('fade-up')"
+                :data-aos-delay="aosDelay(1, 80, 130)"
+                :data-aos-duration="aosDuration(760, 540)"
+                :data-aos-offset="aosOffset(74, 38)"
               >
                 <div
                   class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
@@ -1052,7 +1152,7 @@ onUnmounted(() => {
               <div
                 class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
               >
-                <div data-aos="fade-up" data-aos-delay="150" data-aos-duration="780">
+                <div :data-aos="aosAnimation('fade-up')" :data-aos-delay="aosDelay(1, 70, 120)" :data-aos-duration="aosDuration(740, 520)" :data-aos-offset="aosOffset(70, 36)">
                   <h4
                     class="mt-2 text-lg font-black tracking-[-0.03em] text-slate-950 sm:text-[1.35rem]"
                   >
@@ -1062,9 +1162,10 @@ onUnmounted(() => {
 
                 <div
                   class="hidden items-center gap-3 sm:flex"
-                  data-aos="fade-left"
-                  data-aos-delay="190"
-                  data-aos-duration="780"
+                  :data-aos="aosAnimation('fade-left')"
+                  :data-aos-delay="aosDelay(2, 70, 150)"
+                  :data-aos-duration="aosDuration(740, 520)"
+                  :data-aos-offset="aosOffset(70, 36)"
                 >
                   <button
                     type="button"
@@ -1159,9 +1260,10 @@ onUnmounted(() => {
                       @keydown.enter="openTestimonialDetail(testimonial)"
                       @keydown.space.prevent="openTestimonialDetail(testimonial)"
                       class="group relative flex min-h-[355px] w-[88%] shrink-0 cursor-pointer snap-start flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-5 text-left shadow-[0_18px_52px_rgba(15,23,42,0.07)] outline-none transition-all duration-300 hover:-translate-y-1.5 hover:border-red-500/25 hover:shadow-[0_28px_68px_rgba(15,23,42,0.12)] focus:border-red-300 focus:ring-4 focus:ring-red-100 sm:w-[410px] lg:w-[430px]"
-                      data-aos="zoom-in"
-                      :data-aos-delay="index < 6 ? index * 70 : 0"
-                      data-aos-duration="750"
+                      :data-aos="aosAnimation('zoom-in-up')"
+                      :data-aos-delay="aosDelay(index, 65, 260)"
+                      :data-aos-duration="aosDuration(720, 520)"
+                      :data-aos-offset="aosOffset(78, 40)"
                     >
                       <div
                         class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(180deg,rgba(239,68,68,0.08),transparent)] opacity-0 transition duration-300 group-hover:opacity-100"
@@ -1288,7 +1390,9 @@ onUnmounted(() => {
                 <div
                   v-else-if="hasTestimonials"
                   class="rounded-[1.85rem] border border-dashed border-red-200 bg-white/90 px-6 py-12 text-center shadow-[0_18px_52px_rgba(15,23,42,0.06)] backdrop-blur-xl"
-                  data-aos="fade-up"
+                  :data-aos="aosAnimation('fade-up')"
+                  :data-aos-duration="aosDuration(720, 520)"
+                  :data-aos-offset="aosOffset(70, 36)"
                 >
                   <div
                     class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600 ring-1 ring-red-100"
@@ -1330,7 +1434,9 @@ onUnmounted(() => {
                 <div
                   v-else
                   class="rounded-[1.85rem] border border-dashed border-slate-300 bg-white/90 px-6 py-12 text-center shadow-[0_18px_52px_rgba(15,23,42,0.06)] backdrop-blur-xl"
-                  data-aos="fade-up"
+                  :data-aos="aosAnimation('fade-up')"
+                  :data-aos-duration="aosDuration(720, 520)"
+                  :data-aos-offset="aosOffset(70, 36)"
                 >
                   <div
                     class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-600 ring-1 ring-slate-200"
@@ -1363,9 +1469,10 @@ onUnmounted(() => {
 
               <div
                 class="mt-8 flex justify-center"
-                data-aos="fade-up"
-                data-aos-delay="210"
-                data-aos-duration="800"
+                :data-aos="aosAnimation('fade-up')"
+                :data-aos-delay="aosDelay(2, 70, 160)"
+                :data-aos-duration="aosDuration(760, 540)"
+                :data-aos-offset="aosOffset(74, 38)"
               >
                 <button
                   type="button"
@@ -2251,6 +2358,15 @@ onUnmounted(() => {
   outline-offset: 3px;
 }
 
+.layanan-jasa-mobile-page :deep([data-aos]) {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.layanan-jasa-mobile-page :deep(.aos-animate) {
+  will-change: auto;
+}
+
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: 1px 920px;
@@ -2319,6 +2435,13 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .layanan-jasa-mobile-page :deep([data-aos]),
+  .layanan-jasa-mobile-page :deep([data-aos].aos-animate) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .ticker-inner,
   .absolute.inset-0.-translate-x-\[140\%\],
   .absolute.inset-0.-translate-x-\[130\%\] {

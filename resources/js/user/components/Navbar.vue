@@ -344,7 +344,7 @@ const navLinkClasses = (item) => {
             class="flex items-center gap-1.5 rounded-full p-[0.35rem] transition-all duration-300"
           >
             <Link
-              v-for="item in navItems"
+              v-for="(item, index) in navItems"
               :key="item.id || item.path"
               :href="item.href"
               :target="item.target !== '_self' ? item.target : undefined"
@@ -403,7 +403,7 @@ const navLinkClasses = (item) => {
           :aria-expanded="mobileOpen"
           :aria-controls="mobileMenuId"
           @click.stop="toggleMobile"
-          class="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-2xl transition-all duration-200 hover:-translate-y-px active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 xl:hidden"
+          class="mobile-menu-toggle group relative flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center overflow-hidden rounded-2xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px active:scale-[0.94] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 xl:hidden"
           :class="
             mobileOpen
               ? 'bg-white text-slate-950 shadow-[0_10px_24px_rgba(0,0,0,0.18)]'
@@ -412,39 +412,50 @@ const navLinkClasses = (item) => {
               : 'bg-slate-900/5 text-slate-900 hover:bg-slate-900/10'
           "
         >
-          <span class="flex flex-col gap-[5px]" aria-hidden="true">
+          <span
+            class="pointer-events-none absolute inset-0 rounded-2xl transition-all duration-300"
+            :class="
+              mobileOpen
+                ? 'bg-red-500/10 opacity-100'
+                : 'bg-white/10 opacity-0 group-active:opacity-100'
+            "
+            aria-hidden="true"
+          />
+
+          <span
+            class="hamburger-lines relative flex h-[18px] w-[22px] flex-col justify-between"
+            :class="{ 'is-open': mobileOpen }"
+            aria-hidden="true"
+          >
             <span
-              class="block h-[2px] w-[22px] rounded-full transition-all duration-300"
-              :class="[
+              class="hamburger-line"
+              :class="
                 mobileOpen
                   ? 'bg-slate-950'
                   : isHeaderDark
                   ? 'bg-white/95'
-                  : 'bg-slate-900',
-                mobileOpen ? 'translate-y-[7px] rotate-45' : '',
-              ]"
+                  : 'bg-slate-900'
+              "
             />
             <span
-              class="block h-[2px] w-[22px] rounded-full transition-all duration-300"
-              :class="[
+              class="hamburger-line"
+              :class="
                 mobileOpen
                   ? 'bg-slate-950'
                   : isHeaderDark
                   ? 'bg-white/95'
-                  : 'bg-slate-900',
-                mobileOpen ? 'scale-x-0 opacity-0' : '',
-              ]"
+                  : 'bg-slate-900'
+              "
             />
             <span
-              class="block h-[2px] w-[22px] rounded-full transition-all duration-300"
-              :class="[
+              class="hamburger-line"
+              :class="
                 mobileOpen
                   ? 'bg-slate-950'
                   : isHeaderDark
                   ? 'bg-white/95'
-                  : 'bg-slate-900',
-                mobileOpen ? '-translate-y-[7px] -rotate-45' : '',
-              ]"
+                  : 'bg-slate-900'
+              "
             />
           </span>
         </button>
@@ -452,12 +463,12 @@ const navLinkClasses = (item) => {
     </div>
 
     <Transition
-      enter-active-class="transition ease-out duration-200"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition ease-in duration-150"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
+      enter-active-class="transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      enter-from-class="opacity-0 backdrop-blur-0"
+      enter-to-class="opacity-100 backdrop-blur-[3px]"
+      leave-active-class="transition duration-200 ease-[cubic-bezier(0.4,0,1,1)]"
+      leave-from-class="opacity-100 backdrop-blur-[3px]"
+      leave-to-class="opacity-0 backdrop-blur-0"
     >
       <button
         v-if="mobileOpen"
@@ -469,17 +480,17 @@ const navLinkClasses = (item) => {
     </Transition>
 
     <Transition
-      enter-active-class="transition ease-out duration-200"
-      enter-from-class="-translate-y-2 scale-[0.98] opacity-0"
+      enter-active-class="transition duration-350 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      enter-from-class="-translate-y-4 scale-[0.96] opacity-0"
       enter-to-class="translate-y-0 scale-100 opacity-100"
-      leave-active-class="transition ease-in duration-150"
+      leave-active-class="transition duration-220 ease-[cubic-bezier(0.4,0,1,1)]"
       leave-from-class="translate-y-0 scale-100 opacity-100"
-      leave-to-class="-translate-y-2 scale-[0.98] opacity-0"
+      leave-to-class="-translate-y-3 scale-[0.97] opacity-0"
     >
       <section
         v-if="mobileOpen"
         :id="mobileMenuId"
-        class="fixed inset-x-3 top-[74px] z-50 overflow-hidden rounded-[1.55rem] border border-white/40 bg-white shadow-[0_24px_60px_rgba(2,6,23,0.26)] ring-1 ring-slate-950/5 sm:inset-x-5 sm:top-[82px] xl:hidden"
+        class="mobile-menu-panel fixed inset-x-3 top-[74px] z-50 overflow-hidden rounded-[1.55rem] border border-white/40 bg-white shadow-[0_24px_60px_rgba(2,6,23,0.26)] ring-1 ring-slate-950/5 sm:inset-x-5 sm:top-[82px] xl:hidden"
         aria-label="Menu navigasi mobile"
       >
         <div class="relative overflow-hidden bg-slate-950 px-4 py-4 text-white">
@@ -550,7 +561,8 @@ const navLinkClasses = (item) => {
               :target="item.target !== '_self' ? item.target : undefined"
               :aria-current="isActive(item.path) ? 'page' : undefined"
               @click="closeMobile"
-              class="group flex min-h-[50px] w-full touch-manipulation items-center gap-3 rounded-2xl px-3 py-2.5 text-[0.92rem] font-bold transition-all duration-200 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+              class="mobile-menu-item group flex min-h-[50px] w-full touch-manipulation items-center gap-3 rounded-2xl px-3 py-2.5 text-[0.92rem] font-bold transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[1px] active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+              :style="{ '--item-index': index }"
               :class="
                 isActive(item.path)
                   ? 'bg-red-50 text-red-700 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.12)]'
@@ -616,7 +628,7 @@ const navLinkClasses = (item) => {
             rel="noopener noreferrer"
             :aria-label="`Hubungi ${whatsappContactName} melalui WhatsApp`"
             @click="closeMobile"
-            class="group relative inline-flex min-h-[50px] w-full touch-manipulation items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)] px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_rgba(220,38,38,0.28)] transition duration-200 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+            class="mobile-menu-cta group relative inline-flex min-h-[50px] w-full touch-manipulation items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#ef4444,#dc2626,#991b1b)] px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_rgba(220,38,38,0.28)] transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[1px] active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
           >
             <span
               class="absolute inset-0 -translate-x-[140%] bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent)] transition-transform duration-500 group-hover:translate-x-[140%]"
@@ -643,3 +655,96 @@ const navLinkClasses = (item) => {
     </Transition>
   </header>
 </template>
+
+
+<style scoped>
+.hamburger-lines {
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-menu-toggle:active .hamburger-lines {
+  transform: scale(0.9);
+}
+
+.hamburger-lines.is-open {
+  transform: rotate(180deg);
+}
+
+.hamburger-line {
+  display: block;
+  height: 2px;
+  width: 22px;
+  border-radius: 999px;
+  transform-origin: center;
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    background-color 220ms ease,
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hamburger-lines.is-open .hamburger-line:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger-lines.is-open .hamburger-line:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0.25);
+}
+
+.hamburger-lines.is-open .hamburger-line:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+.mobile-menu-panel {
+  transform-origin: top center;
+  will-change: transform, opacity;
+}
+
+.mobile-menu-item {
+  animation: mobile-menu-item-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--item-index) * 42ms + 70ms);
+  will-change: transform, opacity;
+}
+
+.mobile-menu-cta {
+  animation: mobile-menu-cta-in 420ms cubic-bezier(0.22, 1, 0.36, 1) 170ms both;
+  will-change: transform, opacity;
+}
+
+@keyframes mobile-menu-item-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mobile-menu-cta-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hamburger-lines,
+  .hamburger-line,
+  .mobile-menu-item,
+  .mobile-menu-cta {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+}
+</style>

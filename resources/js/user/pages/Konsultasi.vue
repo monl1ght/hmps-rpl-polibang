@@ -662,7 +662,40 @@ const handleEscape = (event) => {
   }
 };
 
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const isMobileViewport = () =>
+  typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+
+const aosAnimation = (desktopAnimation = "fade-up", mobileAnimation = "fade-up") => {
+  if (prefersReducedMotion()) return "fade-up";
+
+  return isMobileViewport() ? mobileAnimation : desktopAnimation;
+};
+
+const aosDuration = (desktopDuration = 760, mobileDuration = 560) => {
+  if (prefersReducedMotion()) return 0;
+
+  return isMobileViewport() ? mobileDuration : desktopDuration;
+};
+
+const aosDelay = (index = 0, step = 80, maxDelay = 260) => {
+  if (prefersReducedMotion()) return 0;
+
+  const safeIndex = Math.max(Number(index) || 0, 0);
+  const safeStep = isMobileViewport() ? Math.min(step, 55) : step;
+  const safeMax = isMobileViewport() ? Math.min(maxDelay, 160) : maxDelay;
+
+  return Math.min(safeIndex * safeStep, safeMax);
+};
+
+const aosOffset = (desktopOffset = 78, mobileOffset = 46) =>
+  isMobileViewport() ? mobileOffset : desktopOffset;
+
 let aosRefreshFrame = null;
+let aosResizeTimer = null;
 
 const refreshAosSafely = async () => {
   await nextTick();
@@ -674,23 +707,40 @@ const refreshAosSafely = async () => {
   }
 
   aosRefreshFrame = window.requestAnimationFrame(() => {
+    AOS.refreshHard?.();
     AOS.refresh();
     aosRefreshFrame = null;
   });
 };
 
+const handleAosResize = () => {
+  if (typeof window === "undefined") return;
+
+  if (aosResizeTimer) {
+    window.clearTimeout(aosResizeTimer);
+  }
+
+  aosResizeTimer = window.setTimeout(() => {
+    refreshAosSafely();
+    aosResizeTimer = null;
+  }, 160);
+};
+
 onMounted(() => {
   AOS.init({
-    duration: 650,
+    duration: aosDuration(720, 540),
     easing: "ease-out-cubic",
     once: true,
-    offset: 72,
+    offset: aosOffset(82, 48),
     delay: 0,
     mirror: false,
-    disable: () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    anchorPlacement: "top-bottom",
+    disable: () => prefersReducedMotion(),
   });
+
+  if (typeof window !== "undefined") {
+    window.AOS = AOS;
+  }
 
   if (!selectedAdminId.value && sortedAdmins.value.length) {
     selectedAdminId.value = sortedAdmins.value[0].id;
@@ -701,9 +751,22 @@ onMounted(() => {
   }, 60000);
 
   window.addEventListener("keydown", handleEscape, { passive: true });
+  window.addEventListener("resize", handleAosResize, { passive: true });
+
+  refreshAosSafely();
 });
 
-watch([filteredTestimonials, selectedRatingFilter], refreshAosSafely);
+watch(
+  [
+    filteredTestimonials,
+    selectedRatingFilter,
+    testimonialModalOpen,
+    selectedTestimonial,
+    sortedAdmins,
+    steps,
+  ],
+  refreshAosSafely
+);
 
 onUnmounted(() => {
   if (timer) clearInterval(timer);
@@ -712,7 +775,12 @@ onUnmounted(() => {
     window.cancelAnimationFrame(aosRefreshFrame);
   }
 
+  if (aosResizeTimer) {
+    window.clearTimeout(aosResizeTimer);
+  }
+
   window.removeEventListener("keydown", handleEscape);
+  window.removeEventListener("resize", handleAosResize);
   document.body.style.overflow = "";
 });
 </script>
@@ -758,7 +826,12 @@ onUnmounted(() => {
         <div
           class="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1fr_0.92fr] xl:gap-16"
         >
-          <div class="hero-lcp-safe">
+          <div
+            class="hero-lcp-safe"
+            :data-aos="aosAnimation('fade-right')"
+            :data-aos-duration="aosDuration(760, 560)"
+            :data-aos-offset="aosOffset(70, 36)"
+          >
             <div class="mb-5 flex flex-wrap items-center gap-3">
               <div
                 class="inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/80 px-3 py-2 text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-red-700 shadow-[0_12px_35px_rgba(2,6,23,0.06)] backdrop-blur-xl sm:text-[0.75rem]"
@@ -955,7 +1028,13 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div class="hero-lcp-safe">
+          <div
+            class="hero-lcp-safe"
+            :data-aos="aosAnimation('fade-left')"
+            :data-aos-delay="aosDelay(1, 90, 160)"
+            :data-aos-duration="aosDuration(780, 560)"
+            :data-aos-offset="aosOffset(70, 36)"
+          >
             <div
               class="relative overflow-hidden rounded-[1.9rem] border border-slate-800 bg-[linear-gradient(155deg,#0f172a,#111827_55%,#1e293b)] text-white shadow-[0_34px_100px_rgba(2,6,23,0.34)] ring-1 ring-slate-700/60"
             >
@@ -1116,8 +1195,9 @@ onUnmounted(() => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mx-auto mb-12 max-w-3xl text-center sm:mb-16"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(800, 560)"
+          :data-aos-offset="aosOffset(76, 44)"
         >
           <div
             class="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3.5 py-2 text-[0.72rem] font-extrabold uppercase tracking-[0.08em] text-red-700"
@@ -1158,9 +1238,10 @@ onUnmounted(() => {
             v-for="(step, index) in steps"
             :key="step.id || step.number || index"
             class="group relative z-10 overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white p-6 shadow-[0_10px_32px_rgba(2,6,23,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-red-500/15 hover:shadow-[0_24px_56px_rgba(2,6,23,0.11)] sm:p-7"
-            data-aos="fade-up"
-            :data-aos-delay="index * 100"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up')"
+            :data-aos-delay="aosDelay(index, 90, 240)"
+            :data-aos-duration="aosDuration(800, 540)"
+            :data-aos-offset="aosOffset(72, 42)"
           >
             <div
               class="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-[linear-gradient(90deg,#ef4444,#dc2626)] transition-transform duration-500 group-hover:scale-x-100"
@@ -1215,8 +1296,9 @@ onUnmounted(() => {
       <div class="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="mx-auto mb-12 max-w-3xl text-center sm:mb-14"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(800, 560)"
+          :data-aos-offset="aosOffset(76, 44)"
         >
           <div
             class="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-white/[0.88] px-4 py-2 text-[0.72rem] font-extrabold uppercase tracking-[0.08em] text-red-700 shadow-[0_12px_34px_rgba(239,68,68,0.10)] backdrop-blur-xl"
@@ -1251,12 +1333,16 @@ onUnmounted(() => {
           class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
         >
           <article
-            v-for="admin in sortedAdmins"
+            v-for="(admin, index) in sortedAdmins"
             :key="admin.id"
             role="button"
             tabindex="0"
             :aria-pressed="String(selectedAdmin?.id) === String(admin.id)"
             class="group relative flex h-full min-h-[25rem] cursor-pointer flex-col overflow-hidden rounded-[2rem] border bg-white outline-none transition-all duration-300 hover:-translate-y-1.5 focus:ring-4 focus:ring-red-100"
+            :data-aos="aosAnimation('zoom-in-up')"
+            :data-aos-delay="aosDelay(index, 70, 260)"
+            :data-aos-duration="aosDuration(760, 540)"
+            :data-aos-offset="aosOffset(76, 42)"
             :class="
               String(selectedAdmin?.id) === String(admin.id)
                 ? 'border-red-200 shadow-[0_28px_80px_rgba(239,68,68,0.16)] ring-4 ring-red-50'
@@ -1453,7 +1539,7 @@ onUnmounted(() => {
         <div
           v-else
           class="mx-auto max-w-3xl rounded-[1.65rem] border border-dashed border-slate-200 bg-white/[0.9] p-8 text-center shadow-[0_16px_46px_rgba(15,23,42,0.05)] backdrop-blur-xl"
-          data-aos="fade-up"
+          :data-aos="aosAnimation('fade-up')"
         >
           <div
             class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-2xl shadow-[0_14px_30px_rgba(15,23,42,0.18)]"
@@ -1481,8 +1567,9 @@ onUnmounted(() => {
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           class="overflow-hidden rounded-[1.85rem] border border-slate-200/70 bg-white shadow-[0_16px_50px_rgba(2,6,23,0.07)]"
-          data-aos="fade-up"
-          data-aos-duration="800"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-duration="aosDuration(800, 560)"
+          :data-aos-offset="aosOffset(76, 44)"
         >
           <div class="h-1.5 bg-[linear-gradient(90deg,#ef4444,#dc2626,#991b1b)]" />
 
@@ -1619,8 +1706,8 @@ onUnmounted(() => {
         <div class="mx-auto mb-10 max-w-4xl text-center sm:mb-12 lg:mb-14">
           <div
             class="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-white/[0.85] px-4 py-2 text-[0.68rem] font-black uppercase tracking-[0.12em] text-red-700 shadow-[0_12px_32px_rgba(239,68,68,0.10)] backdrop-blur-xl sm:text-[0.72rem]"
-            data-aos="fade-down"
-            data-aos-duration="700"
+            :data-aos="aosAnimation('fade-down')"
+            :data-aos-duration="aosDuration(700)"
           >
             <span class="relative flex h-2.5 w-2.5">
               <span
@@ -1633,9 +1720,9 @@ onUnmounted(() => {
 
           <h2
             class="text-[2rem] font-black leading-[1.06] tracking-[-0.055em] text-slate-950 sm:text-[2.65rem] md:text-[3.25rem] lg:text-[3.65rem]"
-            data-aos="fade-up"
-            data-aos-delay="70"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up')"
+            :data-aos-delay="aosDelay(1, 70, 140)"
+            :data-aos-duration="aosDuration(800)"
           >
             Pengalaman pengguna setelah
             <span
@@ -1650,9 +1737,9 @@ onUnmounted(() => {
 
           <p
             class="mx-auto mt-5 max-w-2xl text-center text-[0.95rem] leading-[1.85] text-slate-600 sm:text-[1.02rem]"
-            data-aos="fade-up"
-            data-aos-delay="140"
-            data-aos-duration="800"
+            :data-aos="aosAnimation('fade-up')"
+            :data-aos-delay="aosDelay(2, 70, 180)"
+            :data-aos-duration="aosDuration(800)"
           >
             Testimoni yang tampil di halaman ini adalah testimoni konsultasi yang sudah
             disetujui admin. Anda dapat memfilter berdasarkan rating, menggeser daftar
@@ -1662,9 +1749,9 @@ onUnmounted(() => {
 
         <div
           class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/[0.92] p-4 shadow-[0_28px_80px_rgba(15,23,42,0.09)] backdrop-blur-xl sm:p-5 lg:p-6"
-          data-aos="fade-up"
-          data-aos-delay="80"
-          data-aos-duration="850"
+          :data-aos="aosAnimation('fade-up')"
+          :data-aos-delay="aosDelay(1, 80, 160)"
+          :data-aos-duration="aosDuration(850)"
         >
           <div
             class="relative overflow-hidden rounded-[1.7rem] border border-white/70 bg-[radial-gradient(circle_at_8%_10%,rgba(239,68,68,0.09),transparent_24%),radial-gradient(circle_at_92%_8%,rgba(16,185,129,0.09),transparent_24%),linear-gradient(135deg,#ffffff_0%,#fff8f8_44%,#f8fafc_100%)] p-4 sm:p-5 lg:p-6"
@@ -1683,9 +1770,9 @@ onUnmounted(() => {
               <div
                 v-if="hasTestimonials"
                 class="rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] sm:p-5"
-                data-aos="fade-up"
-                data-aos-delay="120"
-                data-aos-duration="800"
+                :data-aos="aosAnimation('fade-up')"
+                :data-aos-delay="aosDelay(1, 90, 180)"
+                :data-aos-duration="aosDuration(800)"
               >
                 <div
                   class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
@@ -1767,7 +1854,7 @@ onUnmounted(() => {
               <div
                 class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
               >
-                <div data-aos="fade-up" data-aos-delay="150" data-aos-duration="780">
+                <div :data-aos="aosAnimation('fade-up')" :data-aos-delay="aosDelay(2, 75, 180)" :data-aos-duration="aosDuration(780)">
                   <h4
                     class="mt-2 text-lg font-black tracking-[-0.03em] text-slate-950 sm:text-[1.35rem]"
                   >
@@ -1777,9 +1864,9 @@ onUnmounted(() => {
 
                 <div
                   class="hidden items-center gap-3 sm:flex"
-                  data-aos="fade-left"
-                  data-aos-delay="190"
-                  data-aos-duration="780"
+                  :data-aos="aosAnimation('fade-left')"
+                  :data-aos-delay="aosDelay(2, 90, 200)"
+                  :data-aos-duration="aosDuration(780)"
                 >
                   <button
                     type="button"
@@ -1874,9 +1961,10 @@ onUnmounted(() => {
                       @keydown.enter="openTestimonialDetail(testimonial)"
                       @keydown.space.prevent="openTestimonialDetail(testimonial)"
                       class="group relative flex min-h-[355px] w-[88%] shrink-0 cursor-pointer snap-start flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-5 text-left shadow-[0_18px_52px_rgba(15,23,42,0.07)] outline-none transition-all duration-300 hover:-translate-y-1.5 hover:border-red-500/25 hover:shadow-[0_28px_68px_rgba(15,23,42,0.12)] focus:border-red-300 focus:ring-4 focus:ring-red-100 sm:w-[410px] lg:w-[430px]"
-                      data-aos="zoom-in"
-                      :data-aos-delay="index < 6 ? index * 70 : 0"
-                      data-aos-duration="750"
+                      :data-aos="aosAnimation('zoom-in-up')"
+                      :data-aos-delay="aosDelay(index, 65, 220)"
+                      :data-aos-duration="aosDuration(750, 520)"
+                      :data-aos-offset="aosOffset(70, 40)"
                     >
                       <div
                         class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(180deg,rgba(239,68,68,0.08),transparent)] opacity-0 transition duration-300 group-hover:opacity-100"
@@ -2004,7 +2092,7 @@ onUnmounted(() => {
                 <div
                   v-else-if="hasTestimonials"
                   class="rounded-[1.85rem] border border-dashed border-red-200 bg-white/90 px-6 py-12 text-center shadow-[0_18px_52px_rgba(15,23,42,0.06)] backdrop-blur-xl"
-                  data-aos="fade-up"
+                  :data-aos="aosAnimation('fade-up')"
                 >
                   <div
                     class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600 ring-1 ring-red-100"
@@ -2046,7 +2134,7 @@ onUnmounted(() => {
                 <div
                   v-else
                   class="rounded-[1.85rem] border border-dashed border-slate-300 bg-white/90 px-6 py-12 text-center shadow-[0_18px_52px_rgba(15,23,42,0.06)] backdrop-blur-xl"
-                  data-aos="fade-up"
+                  :data-aos="aosAnimation('fade-up')"
                 >
                   <div
                     class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-600 ring-1 ring-slate-200"
@@ -2079,9 +2167,9 @@ onUnmounted(() => {
 
               <div
                 class="mt-8 flex justify-center"
-                data-aos="fade-up"
-                data-aos-delay="210"
-                data-aos-duration="800"
+                :data-aos="aosAnimation('fade-up')"
+                :data-aos-delay="aosDelay(2, 90, 210)"
+                :data-aos-duration="aosDuration(800)"
               >
                 <button
                   type="button"

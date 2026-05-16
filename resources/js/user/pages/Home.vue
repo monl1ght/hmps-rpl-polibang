@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Head, Link } from "@inertiajs/vue3";
 import UserLayout from "@/user/layouts/UserLayout.vue";
 
@@ -542,6 +542,32 @@ const galleryCardClass = (item, index) => {
   return "col-span-1 h-36 min-[390px]:h-40 sm:h-48 lg:h-[14.25rem]";
 };
 
+const aosDelay = (index = 0, step = 75, max = 220) =>
+  Math.min(Number(index) * step, max);
+
+const refreshAos = () => {
+  if (typeof window === "undefined" || !window.AOS) return;
+
+  window.requestAnimationFrame(() => {
+    if (typeof window.AOS.refreshHard === "function") {
+      window.AOS.refreshHard();
+      return;
+    }
+
+    if (typeof window.AOS.refresh === "function") {
+      window.AOS.refresh();
+    }
+  });
+};
+
+onMounted(() => {
+  nextTick(refreshAos);
+});
+
+watch([displayedProkers, displayedGallery, heroImages], () => {
+  nextTick(refreshAos);
+});
+
 const scrollToSection = (id) => {
   if (typeof document === "undefined") return;
 
@@ -614,6 +640,11 @@ const scrollToSection = (id) => {
         >
           <div
             class="rounded-[1.75rem] border border-white/70 bg-white/78 p-3.5 shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:rounded-none lg:border-0 lg:bg-transparent"
+            data-aos="fade-up"
+            data-aos-duration="700"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="40"
+            data-aos-once="true"
           >
             <div
               class="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-red-500/10 bg-white/90 px-3 py-2 text-[0.62rem] font-black uppercase tracking-[0.08em] text-red-700 shadow-[0_12px_32px_rgba(2,6,23,0.06)] backdrop-blur-xl sm:mb-5 sm:text-[0.75rem]"
@@ -788,9 +819,12 @@ const scrollToSection = (id) => {
 
           <div
             class="relative mx-auto hidden w-full max-w-[31rem] md:block sm:max-w-[37rem] lg:mx-auto"
-            data-aos="fade-up"
+            data-aos="fade-left"
             data-aos-delay="120"
-            data-aos-duration="800"
+            data-aos-duration="760"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="60"
+            data-aos-once="true"
           >
             <div
               class="absolute -left-4 top-10 hidden h-24 w-24 rounded-full border border-red-500/20 lg:block"
@@ -966,8 +1000,11 @@ const scrollToSection = (id) => {
           class="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 lg:gap-12 xl:gap-16"
         >
           <div
-            data-aos="fade-up"
-            data-aos-duration="800"
+            data-aos="fade-right"
+            data-aos-duration="720"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="90"
+            data-aos-once="true"
             class="rounded-[1.75rem] border border-slate-900/[0.06] bg-white p-4 shadow-[0_14px_40px_rgba(2,6,23,0.05)] sm:rounded-none sm:border-0 sm:p-0 sm:shadow-none"
           >
             <div
@@ -1026,7 +1063,14 @@ const scrollToSection = (id) => {
             </div>
           </div>
 
-          <div data-aos="fade-up" data-aos-delay="120" data-aos-duration="800">
+          <div
+            data-aos="fade-left"
+            data-aos-delay="120"
+            data-aos-duration="760"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="90"
+            data-aos-once="true"
+          >
             <div
               class="relative overflow-hidden rounded-[1.55rem] bg-[linear-gradient(160deg,#0b1220,#111827_58%,#1e1b4b)] p-4 text-white shadow-[0_18px_44px_rgba(2,6,23,0.16)] sm:rounded-[1.75rem] sm:p-6 lg:p-7"
             >
@@ -1123,7 +1167,13 @@ const scrollToSection = (id) => {
         <div
           class="mb-6 flex flex-col justify-between gap-4 sm:mb-14 lg:mb-16 md:flex-row md:items-end"
         >
-          <div data-aos="fade-up" data-aos-duration="800">
+          <div
+            data-aos="fade-up"
+            data-aos-duration="720"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="90"
+            data-aos-once="true"
+          >
             <div
               class="mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.68rem] font-black uppercase tracking-[0.08em] text-red-700 sm:mb-5 sm:text-[0.7rem]"
             >
@@ -1151,9 +1201,12 @@ const scrollToSection = (id) => {
 
           <Link
             :href="safeHref(homeProgram.primaryButtonUrl, '/program-kerja')"
-            data-aos="fade-up"
-            data-aos-delay="80"
-            data-aos-duration="800"
+            data-aos="fade-left"
+            data-aos-delay="90"
+            data-aos-duration="700"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="90"
+            data-aos-once="true"
             class="inline-flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-slate-900/10 bg-white px-5 text-sm font-extrabold text-slate-900 shadow-[0_12px_34px_rgba(2,6,23,0.06)] transition-all duration-300 hover:-translate-y-[2px] hover:border-red-500/25 hover:text-red-700 hover:shadow-[0_22px_50px_rgba(2,6,23,0.11)] active:scale-[0.98] sm:min-h-[52px] sm:w-auto sm:text-[0.95rem] md:shrink-0"
           >
             {{ homeProgram.primaryButtonLabel }}
@@ -1185,8 +1238,11 @@ const scrollToSection = (id) => {
             :aria-label="`Lihat detail ${proker.title || 'Program Kerja HMPS RPL'}`"
             class="group cursor-pointer overflow-hidden rounded-[1.35rem] border border-slate-900/5 bg-white text-left shadow-[0_12px_34px_rgba(2,6,23,0.06)] outline-none transition-all duration-300 hover:-translate-y-2 hover:border-red-500/20 hover:shadow-[0_30px_75px_rgba(2,6,23,0.14)] active:scale-[0.99] focus-visible:border-red-500/35 focus-visible:ring-4 focus-visible:ring-red-500/15 sm:rounded-[1.6rem]"
             data-aos="fade-up"
-            :data-aos-delay="index * 90"
-            data-aos-duration="800"
+            :data-aos-delay="aosDelay(index, 80, 200)"
+            data-aos-duration="720"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="90"
+            data-aos-once="true"
             @click="openProkerDetail(proker)"
             @keyup.enter="openProkerDetail(proker)"
             @keyup.space.prevent="openProkerDetail(proker)"
@@ -1298,6 +1354,11 @@ const scrollToSection = (id) => {
         <div
           v-else
           class="rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center shadow-[0_14px_36px_rgba(2,6,23,0.04)] sm:rounded-[2rem]"
+          data-aos="fade-up"
+          data-aos-duration="680"
+          data-aos-easing="ease-out-cubic"
+          data-aos-offset="80"
+          data-aos-once="true"
         >
           <div
             class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-2xl"
@@ -1549,7 +1610,10 @@ const scrollToSection = (id) => {
         <div
           class="mx-auto mb-6 max-w-3xl text-center sm:mb-14 lg:mb-16"
           data-aos="fade-up"
-          data-aos-duration="800"
+          data-aos-duration="720"
+          data-aos-easing="ease-out-cubic"
+          data-aos-offset="90"
+          data-aos-once="true"
         >
           <div
             class="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-50 px-3 py-2 text-[0.68rem] font-black uppercase tracking-[0.08em] text-red-700 sm:mb-5 sm:text-[0.7rem]"
@@ -1579,15 +1643,18 @@ const scrollToSection = (id) => {
         <div
           v-if="displayedGallery.length"
           class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-4"
-          data-aos="fade-up"
-          data-aos-delay="100"
-          data-aos-duration="800"
         >
           <div
             v-for="(item, index) in displayedGallery"
             :key="item.id || `${item.title}-${index}`"
             class="group relative overflow-hidden rounded-[1.15rem] bg-slate-100 shadow-[0_14px_40px_rgba(2,6,23,0.10)] ring-1 ring-slate-900/5 sm:rounded-[1.65rem]"
             :class="galleryCardClass(item, index)"
+            data-aos="fade-up"
+            :data-aos-delay="aosDelay(index, 55, 220)"
+            data-aos-duration="680"
+            data-aos-easing="ease-out-cubic"
+            data-aos-offset="80"
+            data-aos-once="true"
           >
             <img
               :src="getGalleryImage(item)"
@@ -1622,6 +1689,11 @@ const scrollToSection = (id) => {
         <div
           v-else
           class="rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-8 text-center shadow-[0_14px_36px_rgba(2,6,23,0.04)] sm:rounded-[2rem]"
+          data-aos="fade-up"
+          data-aos-duration="680"
+          data-aos-easing="ease-out-cubic"
+          data-aos-offset="80"
+          data-aos-once="true"
         >
           <div
             class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-2xl"
@@ -1642,8 +1714,11 @@ const scrollToSection = (id) => {
         <div
           class="mt-7 text-center sm:mt-12"
           data-aos="fade-up"
-          data-aos-delay="160"
-          data-aos-duration="800"
+          data-aos-delay="120"
+          data-aos-duration="700"
+          data-aos-easing="ease-out-cubic"
+          data-aos-offset="70"
+          data-aos-once="true"
         >
           <Link
             :href="safeHref(homeGallerySection.primaryButtonUrl, '/dokumentasi')"
@@ -1776,6 +1851,18 @@ const scrollToSection = (id) => {
   outline-offset: 4px;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .home-justify-page :deep([data-aos]) {
+    will-change: transform, opacity;
+  }
+}
+
+@media (max-width: 767px) {
+  .home-justify-page :deep([data-aos]) {
+    transition-delay: 0ms !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-justify-page *,
   .home-justify-page *::before,
@@ -1784,6 +1871,11 @@ const scrollToSection = (id) => {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .home-justify-page :deep([data-aos]) {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 </style>
