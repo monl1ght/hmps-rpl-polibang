@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,6 +34,7 @@ class DocumentationManagementController extends Controller
                 'cover_url' => $documentation->cover_url,
                 'description' => $documentation->description,
                 'is_featured' => (bool) $documentation->is_featured,
+                'featured_size' => $documentation->featured_size ?: Documentation::FEATURED_SIZE_MEDIUM,
                 'is_published' => (bool) $documentation->is_published,
                 'sort_order' => (int) $documentation->sort_order,
                 'images' => $documentation->images
@@ -67,9 +69,12 @@ class DocumentationManagementController extends Controller
             'gallery_files' => ['nullable', 'array'],
             'gallery_files.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'is_featured' => ['required', 'boolean'],
+            'featured_size' => ['nullable', 'string', 'in:large,medium,small'],
             'is_published' => ['required', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0'],
         ]);
+
+        $this->guardFeaturedLimit((bool) $validated['is_featured']);
 
         $coverPath = $request->file('cover_file')->store('documentations/covers', 'public');
 
@@ -82,8 +87,9 @@ class DocumentationManagementController extends Controller
             'location' => $validated['location'] ?? null,
             'description' => $validated['description'] ?? null,
             'cover' => $coverPath,
-            'is_featured' => $validated['is_featured'],
-            'is_published' => $validated['is_published'],
+            'is_featured' => (bool) $validated['is_featured'],
+            'featured_size' => $this->normalizeFeaturedSize($validated['featured_size'] ?? null),
+            'is_published' => (bool) $validated['is_published'],
             'sort_order' => $validated['sort_order'],
         ]);
 
@@ -116,9 +122,12 @@ class DocumentationManagementController extends Controller
             'gallery_files' => ['nullable', 'array'],
             'gallery_files.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'is_featured' => ['required', 'boolean'],
+            'featured_size' => ['nullable', 'string', 'in:large,medium,small'],
             'is_published' => ['required', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0'],
         ]);
+
+        $this->guardFeaturedLimit((bool) $validated['is_featured'], $documentation->id);
 
         $coverPath = $documentation->cover;
 
@@ -144,8 +153,9 @@ class DocumentationManagementController extends Controller
             'location' => $validated['location'] ?? null,
             'description' => $validated['description'] ?? null,
             'cover' => $coverPath,
-            'is_featured' => $validated['is_featured'],
-            'is_published' => $validated['is_published'],
+            'is_featured' => (bool) $validated['is_featured'],
+            'featured_size' => $this->normalizeFeaturedSize($validated['featured_size'] ?? null),
+            'is_published' => (bool) $validated['is_published'],
             'sort_order' => $validated['sort_order'],
         ]);
 
@@ -202,6 +212,32 @@ class DocumentationManagementController extends Controller
         $documentationImage->delete();
 
         return back()->with('success', 'Foto galeri berhasil dihapus.');
+    }
+
+
+    private function guardFeaturedLimit(bool $isFeatured, ?int $ignoreId = null): void
+    {
+        if (! $isFeatured) {
+            return;
+        }
+
+        $featuredCount = Documentation::query()
+            ->where('is_featured', true)
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->count();
+
+        if ($featuredCount >= 4) {
+            throw ValidationException::withMessages([
+                'is_featured' => 'Maksimal hanya 4 dokumentasi yang boleh dijadikan Featured di hero section.',
+            ]);
+        }
+    }
+
+    private function normalizeFeaturedSize(?string $size): string
+    {
+        return in_array($size, Documentation::FEATURED_SIZES, true)
+            ? $size
+            : Documentation::FEATURED_SIZE_MEDIUM;
     }
 
     private function uniqueSlug(string $title, ?int $ignoreId = null): string

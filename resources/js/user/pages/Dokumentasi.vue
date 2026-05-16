@@ -328,11 +328,42 @@ const filteredDocumentations = computed(() => {
   });
 });
 
-const featuredDocumentation = computed(() => filteredDocumentations.value.slice(0, 3));
+const normalizeFeaturedSize = (size) =>
+  ["large", "medium", "small"].includes(size) ? size : "medium";
+
+const featuredDocumentation = computed(() =>
+  documentations.value.filter((item) => Boolean(item?.is_featured)).slice(0, 4)
+);
+
 const primaryFeatured = computed(
   () => featuredDocumentation.value[0] || documentations.value[0] || null
 );
-const secondaryFeatured = computed(() => featuredDocumentation.value.slice(1, 3));
+
+const featuredCardClass = (item) => {
+  const size = normalizeFeaturedSize(item?.featured_size);
+
+  if (size === "large") {
+    return "sm:col-span-2";
+  }
+
+  return "sm:col-span-1";
+};
+
+const featuredImageClass = (item) => {
+  const size = normalizeFeaturedSize(item?.featured_size);
+
+  if (size === "large") {
+    return "h-60 min-[390px]:h-72 sm:h-[23rem] lg:h-[25rem]";
+  }
+
+  if (size === "small") {
+    return "h-36 sm:h-44";
+  }
+
+  return "h-48 sm:h-56";
+};
+
+const featuredLabel = () => "Unggulan";
 
 const primaryCover = computed(() => getCoverSource(primaryFeatured.value));
 const primaryCoverSrcset = computed(() => getItemSrcset(primaryFeatured.value));
@@ -502,101 +533,76 @@ onUnmounted(() => {
                 class="pointer-events-none absolute inset-0 rounded-[1.7rem] [background:linear-gradient(135deg,rgba(239,68,68,0.22),rgba(255,255,255,0.25),rgba(153,27,27,0.16))] [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [mask-composite:exclude] p-px sm:rounded-[2rem]"
               />
 
-              <div v-if="primaryFeatured" class="relative z-10 grid gap-3">
+              <div
+                v-if="featuredDocumentation.length"
+                class="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2"
+              >
                 <button
+                  v-for="(item, index) in featuredDocumentation"
+                  :key="item.id || `${item.title}-${index}`"
                   type="button"
-                  class="group relative overflow-hidden rounded-[1.35rem] bg-slate-100 text-left shadow-[0_16px_40px_rgba(2,6,23,0.12)] outline-none ring-1 ring-slate-900/5 transition duration-300 hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-red-500/20 sm:rounded-[1.6rem]"
-                  :aria-label="`Lihat detail ${
-                    primaryFeatured.title || 'Dokumentasi HMPS RPL'
-                  }`"
-                  @click="openDetail(primaryFeatured)"
+                  class="group relative overflow-hidden rounded-[1.35rem] bg-white text-left shadow-[0_18px_46px_rgba(15,23,42,0.12)] outline-none ring-1 ring-white/60 transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_60px_rgba(15,23,42,0.18)] focus-visible:ring-4 focus-visible:ring-red-500/20 sm:rounded-[1.65rem]"
+                  :class="featuredCardClass(item)"
+                  :aria-label="`Lihat detail ${item.title || 'Dokumentasi HMPS RPL'}`"
+                  @click="openDetail(item)"
                 >
-                  <div
-                    class="relative h-60 overflow-hidden min-[390px]:h-72 sm:h-[23rem] lg:h-[26rem]"
-                  >
+                  <div class="relative overflow-hidden" :class="featuredImageClass(item)">
                     <img
-                      :src="getCoverSource(primaryFeatured)"
-                      :srcset="getItemSrcset(primaryFeatured) || null"
+                      :src="getCoverSource(item)"
+                      :srcset="getItemSrcset(item) || null"
                       sizes="(max-width: 640px) 92vw, (max-width: 1024px) 520px, 560px"
-                      :alt="getItemAlt(primaryFeatured)"
+                      :alt="getItemAlt(item)"
                       width="720"
                       height="480"
-                      loading="eager"
-                      fetchpriority="high"
+                      :loading="index === 0 ? 'eager' : 'lazy'"
+                      :fetchpriority="index === 0 ? 'high' : 'low'"
                       decoding="async"
                       class="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                     />
                     <div
-                      class="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,11,22,0.82),rgba(6,11,22,0.16)_58%,transparent)]"
+                      class="absolute inset-0 bg-[linear-gradient(to_top,rgba(6,11,22,0.84),rgba(6,11,22,0.18)_58%,transparent)]"
                     />
-                    <div class="absolute left-4 right-4 top-4 flex flex-wrap gap-2">
+                    <div
+                      class="absolute left-3 right-3 top-3 flex flex-wrap gap-2 sm:left-4 sm:right-4 sm:top-4"
+                    >
                       <span
-                        class="rounded-full bg-white/90 px-3 py-1.5 text-[0.65rem] font-black uppercase tracking-[0.08em] text-slate-900 shadow-sm"
+                        class="rounded-full bg-white/90 px-3 py-1.5 text-[0.62rem] font-black uppercase tracking-[0.08em] text-slate-900 shadow-sm"
                       >
-                        {{ primaryFeatured.year || "Arsip" }}
+                        {{ item.year || "Arsip" }}
                       </span>
                       <span
-                        class="rounded-full bg-red-600 px-3 py-1.5 text-[0.65rem] font-black uppercase tracking-[0.08em] text-white shadow-sm"
+                        class="rounded-full bg-red-600 px-3 py-1.5 text-[0.62rem] font-black uppercase tracking-[0.08em] text-white shadow-sm"
                       >
-                        {{ getCategoryLabel(primaryFeatured.category) }}
+                        {{ getCategoryLabel(item.category) }}
                       </span>
                     </div>
-                    <div class="absolute bottom-5 left-5 right-5 text-white">
+                    <div
+                      class="absolute bottom-4 left-4 right-4 text-white sm:bottom-5 sm:left-5 sm:right-5"
+                    >
                       <p
-                        class="text-[0.7rem] font-black uppercase tracking-[0.12em] text-red-100"
+                        class="text-[0.64rem] font-black uppercase tracking-[0.12em] text-red-100"
                       >
-                        Dokumentasi Unggulan
+                        {{ featuredLabel(item) }}
                       </p>
                       <h2
-                        class="mt-2 line-clamp-2 text-2xl font-black leading-tight tracking-[-0.04em] sm:text-3xl"
+                        class="mt-2 line-clamp-2 font-black leading-tight tracking-[-0.04em]"
+                        :class="
+                          normalizeFeaturedSize(item.featured_size) === 'large'
+                            ? 'text-2xl sm:text-3xl'
+                            : 'text-base sm:text-xl'
+                        "
                       >
-                        {{ primaryFeatured.title || "Dokumentasi HMPS RPL" }}
+                        {{ item.title || "Dokumentasi HMPS RPL" }}
                       </h2>
-                      <p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-200">
-                        {{
-                          primaryFeatured.description ||
-                          "Arsip dokumentasi kegiatan HMPS RPL."
-                        }}
+                      <p
+                        v-if="normalizeFeaturedSize(item.featured_size) !== 'small'"
+                        class="mt-2 line-clamp-2 text-sm leading-6 text-slate-200"
+                      >
+                        {{ item.description || "Arsip dokumentasi kegiatan HMPS RPL." }}
                       </p>
                     </div>
                   </div>
                 </button>
-
-                <div v-if="secondaryFeatured.length" class="grid grid-cols-2 gap-3">
-                  <button
-                    v-for="(item, index) in secondaryFeatured"
-                    :key="item.id || `${item.title}-${index}`"
-                    type="button"
-                    class="group overflow-hidden rounded-[1.2rem] border border-slate-200 bg-slate-50 text-left outline-none transition duration-300 hover:-translate-y-1 hover:border-red-200 focus-visible:ring-4 focus-visible:ring-red-500/20"
-                    :aria-label="`Lihat detail ${item.title || 'Dokumentasi HMPS RPL'}`"
-                    @click="openDetail(item)"
-                  >
-                    <img
-                      :src="getCoverSource(item)"
-                      :srcset="getItemSrcset(item) || null"
-                      sizes="(max-width: 640px) 44vw, 260px"
-                      :alt="getItemAlt(item)"
-                      width="320"
-                      height="210"
-                      loading="lazy"
-                      fetchpriority="low"
-                      decoding="async"
-                      class="h-28 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-32"
-                    />
-                    <div class="p-3">
-                      <p
-                        class="text-[0.62rem] font-black uppercase tracking-[0.08em] text-red-600"
-                      >
-                        {{ item.year }} • {{ getCategoryLabel(item.category) }}
-                      </p>
-                      <h3
-                        class="mt-1 line-clamp-2 text-sm font-black leading-snug text-slate-950 sm:text-base"
-                      >
-                        {{ item.title }}
-                      </h3>
-                    </div>
-                  </button>
-                </div>
               </div>
 
               <div
@@ -609,11 +615,8 @@ onUnmounted(() => {
                   📂
                 </div>
                 <h2 class="mt-4 text-xl font-black tracking-[-0.03em] text-slate-950">
-                  Belum ada dokumentasi
+                  Belum ada dokumentasi Unggulan yang ditampilkan
                 </h2>
-                <p class="mt-2 text-sm leading-7 text-slate-500">
-                  Tambahkan dokumentasi melalui admin agar data tampil di halaman ini.
-                </p>
               </div>
             </div>
           </div>

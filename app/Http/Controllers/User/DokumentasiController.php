@@ -40,6 +40,7 @@ class DokumentasiController extends Controller
             'cover' => $documentation->cover_url,
             'description' => $documentation->description,
             'is_featured' => (bool) $documentation->is_featured,
+            'featured_size' => $documentation->featured_size ?: Documentation::FEATURED_SIZE_MEDIUM,
             'gallery' => $documentation->images
                 ->map(fn ($image) => $image->image_url)
                 ->values()

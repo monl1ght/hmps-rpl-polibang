@@ -11,6 +11,16 @@ use Illuminate\Support\Str;
 
 class Documentation extends Model
 {
+    public const FEATURED_SIZE_LARGE = 'large';
+    public const FEATURED_SIZE_MEDIUM = 'medium';
+    public const FEATURED_SIZE_SMALL = 'small';
+
+    public const FEATURED_SIZES = [
+        self::FEATURED_SIZE_LARGE,
+        self::FEATURED_SIZE_MEDIUM,
+        self::FEATURED_SIZE_SMALL,
+    ];
+
     protected $fillable = [
         'title',
         'slug',
@@ -21,6 +31,7 @@ class Documentation extends Model
         'cover',
         'description',
         'is_featured',
+        'featured_size',
         'is_published',
         'sort_order',
     ];
@@ -28,6 +39,7 @@ class Documentation extends Model
     protected $attributes = [
         'category' => 'kegiatan',
         'is_featured' => false,
+        'featured_size' => self::FEATURED_SIZE_MEDIUM,
         'is_published' => true,
         'sort_order' => 0,
     ];
@@ -48,11 +60,18 @@ class Documentation extends Model
     {
         static::saving(function (Documentation $documentation) {
             if (blank($documentation->slug)) {
-                $documentation->slug = static::generateUniqueSlug($documentation->title, $documentation->id);
+                $documentation->slug = static::generateUniqueSlug(
+                    $documentation->title,
+                    $documentation->id
+                );
             }
 
             if (blank($documentation->year)) {
                 $documentation->year = now()->year;
+            }
+
+            if (! in_array($documentation->featured_size, self::FEATURED_SIZES, true)) {
+                $documentation->featured_size = self::FEATURED_SIZE_MEDIUM;
             }
         });
     }
@@ -83,6 +102,18 @@ class Documentation extends Model
             ->orderByDesc('id');
     }
 
+    protected function featuredSize(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): string => in_array($value, self::FEATURED_SIZES, true)
+                ? $value
+                : self::FEATURED_SIZE_MEDIUM,
+            set: fn (?string $value): string => in_array($value, self::FEATURED_SIZES, true)
+                ? $value
+                : self::FEATURED_SIZE_MEDIUM,
+        );
+    }
+
     protected function coverUrl(): Attribute
     {
         return Attribute::get(fn () => $this->resolveImageUrl($this->cover));
@@ -107,7 +138,7 @@ class Documentation extends Model
 
     private static function generateUniqueSlug(string $title, ?int $ignoreId = null): string
     {
-        $baseSlug = Str::slug($title);
+        $baseSlug = Str::slug($title) ?: 'dokumentasi';
         $slug = $baseSlug;
         $counter = 1;
 

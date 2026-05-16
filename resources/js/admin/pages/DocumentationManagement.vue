@@ -36,6 +36,28 @@ const documentations = computed(() =>
   Array.isArray(props.documentations) ? props.documentations : []
 );
 
+const featuredSizeOptions = [
+  {
+    value: "large",
+    label: "Besar",
+    helper: "Foto tampil dominan di hero section.",
+  },
+  {
+    value: "medium",
+    label: "Sedang",
+    helper: "Foto tampil seimbang bersama dokumentasi lain.",
+  },
+  {
+    value: "small",
+    label: "Kecil",
+    helper: "Foto tampil ringkas sebagai pendukung.",
+  },
+];
+
+const featuredSizeLabel = (size) => {
+  return featuredSizeOptions.find((item) => item.value === size)?.label || "Sedang";
+};
+
 const stats = computed(() => {
   const total = documentations.value.length;
   const published = documentations.value.filter((item) => item.is_published).length;
@@ -84,6 +106,7 @@ const form = useForm({
   cover_file: null,
   gallery_files: [],
   is_featured: false,
+  featured_size: "medium",
   is_published: true,
   sort_order: 0,
 });
@@ -98,6 +121,7 @@ const editForm = useForm({
   cover_file: null,
   gallery_files: [],
   is_featured: false,
+  featured_size: "medium",
   is_published: true,
   sort_order: 0,
 });
@@ -145,6 +169,7 @@ const resetForm = () => {
   form.cover_file = null;
   form.gallery_files = [];
   form.is_featured = false;
+  form.featured_size = "medium";
   form.is_published = true;
   form.sort_order = 0;
 
@@ -215,6 +240,7 @@ const editDocumentation = (item) => {
   editForm.cover_file = null;
   editForm.gallery_files = [];
   editForm.is_featured = Boolean(item.is_featured);
+  editForm.featured_size = item.featured_size || "medium";
   editForm.is_published = Boolean(item.is_published);
   editForm.sort_order = Number(item.sort_order || 0);
 
@@ -762,25 +788,68 @@ onUnmounted(() => {
           </div>
 
           <div
-            class="flex flex-col justify-center gap-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+            class="flex flex-col justify-center gap-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4"
           >
-            <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
-              <input
-                v-model="form.is_published"
-                type="checkbox"
-                class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
-              />
-              Published
-            </label>
+            <div
+              class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                <input
+                  v-model="form.is_published"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                />
+                Published
+              </label>
 
-            <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
-              <input
-                v-model="form.is_featured"
-                type="checkbox"
-                class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
-              />
-              Featured
-            </label>
+              <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                <input
+                  v-model="form.is_featured"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                />
+                Featured
+              </label>
+            </div>
+
+            <div
+              v-if="form.is_featured"
+              class="rounded-2xl border border-amber-200 bg-amber-50 p-3"
+            >
+              <label
+                class="mb-2 block text-xs font-black uppercase tracking-[0.1em] text-amber-700"
+              >
+                Ukuran Foto Hero
+              </label>
+              <select
+                v-model="form.featured_size"
+                class="h-11 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+              >
+                <option
+                  v-for="option in featuredSizeOptions"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </option>
+              </select>
+              <p class="mt-2 text-xs font-semibold leading-5 text-amber-700">
+                Ukuran hanya mengatur besar kartu di hero section. Maksimal 4 dokumentasi
+                Featured.
+              </p>
+              <p
+                v-if="form.errors.featured_size"
+                class="mt-2 text-xs font-bold text-red-600"
+              >
+                {{ form.errors.featured_size }}
+              </p>
+              <p
+                v-if="form.errors.is_featured"
+                class="mt-2 text-xs font-bold text-red-600"
+              >
+                {{ form.errors.is_featured }}
+              </p>
+            </div>
           </div>
 
           <div class="flex justify-end lg:col-span-2">
@@ -911,6 +980,12 @@ onUnmounted(() => {
                     class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[0.7rem] font-black uppercase tracking-[0.08em] text-amber-700"
                   >
                     Featured
+                  </span>
+                  <span
+                    v-if="item.is_featured"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[0.7rem] font-black uppercase tracking-[0.08em] text-slate-600"
+                  >
+                    {{ featuredSizeLabel(item.featured_size) }}
                   </span>
                 </div>
 
@@ -1284,25 +1359,68 @@ onUnmounted(() => {
               </div>
 
               <div
-                class="flex flex-col justify-center gap-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                class="flex flex-col justify-center gap-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4"
               >
-                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
-                  <input
-                    v-model="editForm.is_published"
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
-                  />
-                  Published
-                </label>
+                <div
+                  class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                    <input
+                      v-model="editForm.is_published"
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                    />
+                    Published
+                  </label>
 
-                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
-                  <input
-                    v-model="editForm.is_featured"
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
-                  />
-                  Featured
-                </label>
+                  <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                    <input
+                      v-model="editForm.is_featured"
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                    />
+                    Featured
+                  </label>
+                </div>
+
+                <div
+                  v-if="editForm.is_featured"
+                  class="rounded-2xl border border-amber-200 bg-amber-50 p-3"
+                >
+                  <label
+                    class="mb-2 block text-xs font-black uppercase tracking-[0.1em] text-amber-700"
+                  >
+                    Ukuran Foto Hero
+                  </label>
+                  <select
+                    v-model="editForm.featured_size"
+                    class="h-11 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm font-black text-slate-800 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100"
+                  >
+                    <option
+                      v-for="option in featuredSizeOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                  <p class="mt-2 text-xs font-semibold leading-5 text-amber-700">
+                    Ukuran hanya mengatur besar kartu di hero section. Maksimal 4
+                    dokumentasi Featured.
+                  </p>
+                  <p
+                    v-if="editForm.errors.featured_size"
+                    class="mt-2 text-xs font-bold text-red-600"
+                  >
+                    {{ editForm.errors.featured_size }}
+                  </p>
+                  <p
+                    v-if="editForm.errors.is_featured"
+                    class="mt-2 text-xs font-bold text-red-600"
+                  >
+                    {{ editForm.errors.is_featured }}
+                  </p>
+                </div>
               </div>
 
               <div
