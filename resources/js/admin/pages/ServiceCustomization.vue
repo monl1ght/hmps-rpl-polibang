@@ -109,6 +109,38 @@ const filteredServices = computed(() => {
   });
 });
 
+const rowsToEditableText = (rows = []) => {
+  if (!Array.isArray(rows)) return "";
+
+  return rows
+    .map((row) => {
+      if (!row) return "";
+
+      if (typeof row === "string") {
+        return row.trim();
+      }
+
+      const label = String(row.label || "").trim();
+      const value = String(row.value || "").trim();
+
+      if (!label && !value) return "";
+      if (!label) return `Keterangan | ${value}`;
+      if (!value) return label;
+
+      return `${label} | ${value}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+};
+
+const packageDetailText = (packageItem) => {
+  const directText = String(packageItem?.rows_text || "").trim();
+
+  if (directText) return directText;
+
+  return rowsToEditableText(packageItem?.rows || []);
+};
+
 const filteredPackages = computed(() => {
   const keyword = packageSearch.value.trim().toLowerCase();
 
@@ -128,9 +160,7 @@ const filteredPackages = computed(() => {
       String(packageItem.service_title || "")
         .toLowerCase()
         .includes(keyword) ||
-      String(packageItem.rows_text || "")
-        .toLowerCase()
-        .includes(keyword);
+      packageDetailText(packageItem).toLowerCase().includes(keyword);
 
     return serviceMatch && searchMatch;
   });
@@ -263,7 +293,7 @@ const editPackage = (packageItem) => {
   packageEditForm.service_catalog_id = packageItem.service_catalog_id || "";
   packageEditForm.title = packageItem.title || "";
   packageEditForm.subtitle = packageItem.subtitle || "";
-  packageEditForm.rows_text = packageItem.rows_text || "";
+  packageEditForm.rows_text = packageDetailText(packageItem);
   packageEditForm.is_active = Boolean(packageItem.is_active);
   packageEditForm.sort_order = Number(packageItem.sort_order || 0);
 };
@@ -1131,11 +1161,15 @@ const testimonialBadgeClass = (testimonial) => {
               <textarea
                 v-model="packageForm.rows_text"
                 rows="8"
-                placeholder="Tujuan | Profil usaha kecil, personal brand&#10;Kisaran Biaya | Rp800.000 – Rp3.000.000&#10;Cocok Untuk | UMKM dan organisasi"
+                placeholder="Keterangan | Membangun citra bisnis yang lebih profesional&#10;Harga | Rp1.000.000 – Rp7.000.000&#10;Tujuan | Company profile profesional&#10;Struktur Halaman | Home, Tentang, Layanan, Kontak&#10;Cocok Untuk | Bisnis menengah dan organisasi"
                 class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm font-medium leading-7 text-slate-900 outline-none transition duration-300 placeholder:text-slate-400 hover:border-slate-300 focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
               />
-              <p class="mt-2 text-xs font-semibold text-slate-500">
-                Contoh format: <span class="font-black">Harga | Rp500.000</span>
+              <p class="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                Gunakan 1 baris untuk 1 data. Contoh:
+                <span class="font-black">Harga | Rp500.000</span>,
+                <span class="font-black">Keterangan | Deskripsi paket</span>. Label
+                <span class="font-black">Harga</span> akan tampil sebagai harga utama di
+                modal user.
               </p>
             </div>
 
@@ -1387,8 +1421,13 @@ const testimonialBadgeClass = (testimonial) => {
                   v-model="packageEditForm.rows_text"
                   rows="7"
                   class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium leading-7 outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
-                  placeholder="Label | Value"
+                  placeholder="Keterangan | Deskripsi paket&#10;Harga | Rp1.000.000 – Rp7.000.000&#10;Tujuan | Isi tujuan paket&#10;Cocok Untuk | Target pengguna"
                 />
+                <p class="text-xs font-semibold leading-5 text-slate-500">
+                  Edit semua isi paket di sini: keterangan, harga, tujuan, struktur
+                  halaman, dan detail lain. Format terbaik:
+                  <span class="font-black">Label | Value</span>.
+                </p>
 
                 <div
                   class="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between"

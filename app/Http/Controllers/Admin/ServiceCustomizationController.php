@@ -525,38 +525,104 @@ class ServiceCustomizationController extends Controller
         return collect(preg_split('/\r\n|\r|\n/', (string) $value) ?: [])
             ->map(fn($line) => $this->cleanString($line))
             ->filter()
-            ->map(function (string $line) {
-                $parts = explode('|', $line, 2);
-
-                return [
-                    'label' => $this->cleanString($parts[0] ?? ''),
-                    'value' => $this->cleanString($parts[1] ?? ''),
-                ];
-            })
+            ->map(fn(string $line) => $this->parsePackageDetailLine($line))
             ->filter(fn(array $row) => filled($row['label']) && filled($row['value']))
             ->values()
             ->all();
     }
 
+    private function parsePackageDetailLine(string $line): array
+    {
+        $line = $this->cleanString($line);
+
+        if ($line === '') {
+            return ['label' => '', 'value' => ''];
+        }
+
+        $patterns = [
+            '/\s*\|\s*/u',
+            '/\s*=>\s*/u',
+            '/\s*:\s*/u',
+            '/\s+[–—-]\s+/u',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $parts = preg_split($pattern, $line, 2);
+
+            if (is_array($parts) && count($parts) === 2) {
+                return [
+                    'label' => $this->cleanString($parts[0] ?? 'Keterangan'),
+                    'value' => $this->cleanString($parts[1] ?? ''),
+                ];
+            }
+        }
+
+        return [
+            'label' => 'Keterangan',
+            'value' => $line,
+        ];
+    }
+
     private function rowsToText(mixed $rows): string
     {
         return collect($this->normalizeRows($rows))
-            ->map(fn(array $row) => $row['label'] . ' | ' . $row['value'])
+            ->map(function (array $row) {
+                $label = $this->cleanString($row['label'] ?? '');
+                $value = $this->cleanString($row['value'] ?? '');
+
+                if ($label === '' && $value === '') {
+                    return '';
+                }
+
+                if ($label === '') {
+                    return 'Keterangan | ' . $value;
+                }
+
+                if ($value === '') {
+                    return $label;
+                }
+
+                return $label . ' | ' . $value;
+            })
+            ->filter()
             ->implode("\n");
     }
 
     private function normalizeRows(mixed $rows): array
     {
+        if ($rows instanceof \Illuminate\Support\Collection) {
+            $rows = $rows->values()->all();
+        }
+
+        if (is_string($rows)) {
+            $decoded = json_decode($rows, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $rows = $decoded;
+            } else {
+                return $this->textToRows($rows);
+            }
+        }
+
         if (! is_array($rows)) {
             return [];
         }
 
         return collect($rows)
-            ->filter(fn($row) => is_array($row))
-            ->map(fn(array $row) => [
-                'label' => $this->cleanString($row['label'] ?? ''),
-                'value' => $this->cleanString($row['value'] ?? ''),
-            ])
+            ->map(function ($row) {
+                if (is_string($row)) {
+                    return $this->parsePackageDetailLine($row);
+                }
+
+                if (! is_array($row)) {
+                    return ['label' => '', 'value' => ''];
+                }
+
+                return [
+                    'label' => $this->cleanString($row['label'] ?? ''),
+                    'value' => $this->cleanString($row['value'] ?? ''),
+                ];
+            })
             ->filter(fn(array $row) => filled($row['label']) || filled($row['value']))
             ->values()
             ->all();

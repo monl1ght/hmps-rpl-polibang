@@ -317,7 +317,16 @@ const mapPackageToOption = (packageItem) => {
     ]) || "Menyesuaikan kebutuhan";
 
   const description =
-    getPackageRowValue(packageItem, ["Tujuan", "Kebutuhan", "Cocok Untuk", "Catatan"]) ||
+    getPackageRowValue(packageItem, [
+      "Keterangan",
+      "Deskripsi",
+      "Ringkasan",
+      "Penjelasan",
+      "Tujuan",
+      "Kebutuhan",
+      "Cocok Untuk",
+      "Catatan",
+    ]) ||
     packageItem.subtitle ||
     "Paket layanan ini dapat disesuaikan dengan kebutuhan Anda.";
 
